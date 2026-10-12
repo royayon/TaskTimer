@@ -330,6 +330,16 @@ body::before {
   display: flex;
   align-items: center;
   gap: 5px;
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.timer-label-tag:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .timer-digits {
@@ -588,6 +598,16 @@ body::before {
   transform: scale(0.9);
 }
 
+.card-action-btn.edit {
+  color: var(--text-secondary);
+}
+
+.card-action-btn.edit:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
 .card-action-btn.delete {
   color: #ff6961;
 }
@@ -595,6 +615,13 @@ body::before {
 .card-action-btn.delete:hover {
   background: rgba(255, 69, 58, 0.2);
   border-color: rgba(255, 69, 58, 0.4);
+}
+
+.edit-icon-chip.selected {
+  background: rgba(255, 159, 10, 0.25) !important;
+  border-color: var(--ios-orange) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 10px rgba(255, 159, 10, 0.35);
 }
 
 /* -------------------------------------------------------------

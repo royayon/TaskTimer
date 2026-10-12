@@ -11,6 +11,10 @@ class TaskTimerApp {
     this.isNightMode = false;
     this.selectedColor = '#ff9f0a';
     this.selectedSound = 'radar';
+    this.editingTimerId = null;
+    this.editingColor = '#ff9f0a';
+    this.editingIcon = '⏱️';
+    this.editingSound = 'radar';
     this.tickInterval = null;
 
     // SVG Circle Circumference for 108px radius
@@ -161,6 +165,13 @@ class TaskTimerApp {
       colorPickerRow: document.getElementById('colorPickerRow'),
       selectSound: document.getElementById('selectSound'),
       btnSubmitTimer: document.getElementById('btnSubmitTimer'),
+
+      // Edit Modal
+      editTimerModal: document.getElementById('editTimerModal'),
+      btnCloseEditModal: document.getElementById('btnCloseEditModal'),
+      inputEditTimerLabel: document.getElementById('inputEditTimerLabel'),
+      selectEditSound: document.getElementById('selectEditSound'),
+      btnSaveEditTimer: document.getElementById('btnSaveEditTimer'),
 
       // Mini Widget
       miniWidget: document.getElementById('miniWidget'),
@@ -377,11 +388,71 @@ class TaskTimerApp {
       this.handleCreateTimer();
     });
 
+    // Click on Hero Timer Tag -> Open Edit Modal for Primary Timer
+    if (this.dom.heroTimerTag) {
+      this.dom.heroTimerTag.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        const primary = this.getPrimaryTimer();
+        if (primary) this.openEditModal(primary.id);
+      });
+    }
+
+    // Edit Modal bindings
+    if (this.dom.btnCloseEditModal) {
+      this.dom.btnCloseEditModal.addEventListener('click', () => {
+        this.closeEditModal();
+      });
+    }
+
+    if (this.dom.editTimerModal) {
+      this.dom.editTimerModal.addEventListener('click', (e) => {
+        if (e.target === this.dom.editTimerModal) {
+          this.closeEditModal();
+        }
+      });
+    }
+
+    if (this.dom.btnSaveEditTimer) {
+      this.dom.btnSaveEditTimer.addEventListener('click', () => {
+        this.saveEditedTimer();
+      });
+    }
+
+    // Edit Color Pickers
+    document.querySelectorAll('#editColorPickerRow .color-dot').forEach(dot => {
+      dot.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        document.querySelectorAll('#editColorPickerRow .color-dot').forEach(d => d.classList.remove('selected'));
+        dot.classList.add('selected');
+        this.editingColor = dot.dataset.color;
+      });
+    });
+
+    // Edit Category Emoji Chips
+    document.querySelectorAll('.edit-icon-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        document.querySelectorAll('.edit-icon-chip').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
+        this.editingIcon = chip.dataset.icon;
+      });
+    });
+
+    // Edit Sound Selector Preview
+    if (this.dom.selectEditSound) {
+      this.dom.selectEditSound.addEventListener('change', () => {
+        this.editingSound = this.dom.selectEditSound.value;
+        window.soundEngine.playTone(this.editingSound);
+      });
+    }
+
     // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         if (this.isStandbyMode) {
           this.toggleStandbyMode(false);
+        } else if (this.dom.editTimerModal && this.dom.editTimerModal.classList.contains('open')) {
+          this.closeEditModal();
         } else if (this.dom.addTimerModal.classList.contains('open')) {
           this.closeAddModal();
         } else if (this.isMiniMode) {
@@ -843,6 +914,68 @@ class TaskTimerApp {
   }
 
   // -------------------------------------------------------------
+  // Edit Timer Operations
+  // -------------------------------------------------------------
+  openEditModal(timerId) {
+    const timer = this.timers.find(t => t.id === timerId);
+    if (!timer) return;
+
+    this.editingTimerId = timer.id;
+    this.editingColor = timer.color || '#ff9f0a';
+    this.editingIcon = timer.category || '⏱️';
+    this.editingSound = timer.sound || 'radar';
+
+    if (this.dom.inputEditTimerLabel) {
+      this.dom.inputEditTimerLabel.value = timer.label;
+    }
+
+    if (this.dom.selectEditSound) {
+      this.dom.selectEditSound.value = this.editingSound;
+    }
+
+    // Highlight current active color
+    document.querySelectorAll('#editColorPickerRow .color-dot').forEach(dot => {
+      dot.classList.toggle('selected', dot.dataset.color === this.editingColor);
+    });
+
+    // Highlight current active category icon
+    document.querySelectorAll('.edit-icon-chip').forEach(chip => {
+      chip.classList.toggle('selected', chip.dataset.icon === this.editingIcon);
+    });
+
+    if (this.dom.editTimerModal) {
+      this.dom.editTimerModal.classList.add('open');
+      if (this.dom.inputEditTimerLabel) {
+        this.dom.inputEditTimerLabel.focus();
+        this.dom.inputEditTimerLabel.select();
+      }
+    }
+  }
+
+  closeEditModal() {
+    if (this.dom.editTimerModal) {
+      this.dom.editTimerModal.classList.remove('open');
+    }
+    this.editingTimerId = null;
+  }
+
+  saveEditedTimer() {
+    const timer = this.timers.find(t => t.id === this.editingTimerId);
+    if (!timer) return;
+
+    const newLabel = (this.dom.inputEditTimerLabel ? this.dom.inputEditTimerLabel.value.trim() : '') || 'Timer';
+    timer.label = newLabel;
+    timer.category = this.editingIcon || '⏱️';
+    timer.color = this.editingColor || '#ff9f0a';
+    timer.sound = this.editingSound || 'radar';
+
+    this.saveTimers();
+    this.closeEditModal();
+    this.render();
+    this.syncWithOsTaskbar();
+  }
+
+  // -------------------------------------------------------------
   // View Modes: Taskbar Docked Pill, Mini Window & StandBy Fullscreen
   // -------------------------------------------------------------
   toggleTaskbarBar(forceState = null) {
@@ -1221,8 +1354,17 @@ class TaskTimerApp {
           const isPrimary = timer.id === this.primaryTimerId;
           card.className = `timer-card ${isPrimary ? 'active-primary' : ''}`;
 
+          const titleEl = card.querySelector('.timer-title');
+          if (titleEl) titleEl.textContent = timer.label;
+
+          const iconEl = card.querySelector('.mini-ring-icon');
+          if (iconEl) iconEl.textContent = timer.category || '⏱️';
+
           const timeEl = card.querySelector('.timer-remaining');
-          if (timeEl) timeEl.textContent = this.formatTime(timer.remaining);
+          if (timeEl) {
+            timeEl.textContent = this.formatTime(timer.remaining);
+            timeEl.style.color = timer.color || '#ff9f0a';
+          }
 
           const statusEl = card.querySelector('.timer-status-text');
           if (statusEl) statusEl.textContent = timer.status.toUpperCase();
@@ -1231,6 +1373,7 @@ class TaskTimerApp {
           if (progressCircle) {
             const frac = Math.max(0, Math.min(1, timer.remaining / (timer.total || 1)));
             progressCircle.style.strokeDashoffset = miniCircumference * (1 - frac);
+            progressCircle.style.stroke = timer.color || '#ff9f0a';
           }
 
           const toggleBtn = card.querySelector('[data-action="toggle"]');
@@ -1290,6 +1433,12 @@ class TaskTimerApp {
           <button class="card-action-btn" data-action="add1m" data-id="${timer.id}" title="+1 Minute">
             +1m
           </button>
+          <button class="card-action-btn edit" data-action="edit" data-id="${timer.id}" title="Edit Name, Color, Sound">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
           <button class="card-action-btn delete" data-action="delete" data-id="${timer.id}" title="Delete Timer">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6"></polyline>
@@ -1299,13 +1448,20 @@ class TaskTimerApp {
         </div>
       `;
 
-      // Select timer as primary on card click
+      // Select timer as primary on single click
       card.addEventListener('click', (e) => {
         if (e.target.closest('.timer-card-actions')) return;
         window.soundEngine.playTick();
         this.primaryTimerId = timer.id;
         this.render();
         this.syncWithOsTaskbar();
+      });
+
+      // Double-click to Edit Timer
+      card.addEventListener('dblclick', (e) => {
+        if (e.target.closest('.timer-card-actions')) return;
+        window.soundEngine.playTick();
+        this.openEditModal(timer.id);
       });
 
       // Actions
@@ -1326,6 +1482,12 @@ class TaskTimerApp {
         this.saveTimers();
         this.render();
         this.syncWithOsTaskbar();
+      });
+
+      card.querySelector('[data-action="edit"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.soundEngine.playTick();
+        this.openEditModal(timer.id);
       });
 
       card.querySelector('[data-action="delete"]').addEventListener('click', (e) => {
