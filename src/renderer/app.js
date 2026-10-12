@@ -5,6 +5,7 @@ class TaskTimerApp {
     this.timers = [];
     this.primaryTimerId = null;
     this.isMiniMode = false;
+    this.isTaskbarMode = false;
     this.isStandbyMode = false;
     this.isAlwaysOnTop = false;
     this.isNightMode = false;
@@ -117,6 +118,7 @@ class TaskTimerApp {
     this.dom = {
       body: document.body,
       // Titlebar buttons
+      btnToggleTaskbar: document.getElementById('btnToggleTaskbar'),
       btnToggleMini: document.getElementById('btnToggleMini'),
       btnToggleStandby: document.getElementById('btnToggleStandby'),
       btnPinWindow: document.getElementById('btnPinWindow'),
@@ -171,7 +173,16 @@ class TaskTimerApp {
       standbyGiantDigits: document.getElementById('standbyGiantDigits'),
       standbyGiantLabel: document.getElementById('standbyGiantLabel'),
       btnToggleNightMode: document.getElementById('btnToggleNightMode'),
-      btnExitStandby: document.getElementById('btnExitStandby')
+      btnExitStandby: document.getElementById('btnExitStandby'),
+
+      // Taskbar Pill Widget
+      taskbarPill: document.getElementById('taskbarPill'),
+      taskbarPillProgress: document.getElementById('taskbarPillProgress'),
+      taskbarPillDigits: document.getElementById('taskbarPillDigits'),
+      taskbarPillLabel: document.getElementById('taskbarPillLabel'),
+      btnTaskbarPillToggle: document.getElementById('btnTaskbarPillToggle'),
+      btnTaskbarPillAdd1m: document.getElementById('btnTaskbarPillAdd1m'),
+      btnTaskbarPillRestore: document.getElementById('btnTaskbarPillRestore')
     };
   }
 
@@ -180,6 +191,9 @@ class TaskTimerApp {
   // -------------------------------------------------------------
   bindEvents() {
     // Titlebar Actions
+    if (this.dom.btnToggleTaskbar) {
+      this.dom.btnToggleTaskbar.addEventListener('click', () => this.toggleTaskbarBar());
+    }
     this.dom.btnToggleMini.addEventListener('click', () => this.toggleMiniMode());
     this.dom.btnToggleStandby.addEventListener('click', () => this.toggleStandbyMode());
     this.dom.btnPinWindow.addEventListener('click', () => this.toggleAlwaysOnTop());
@@ -193,6 +207,26 @@ class TaskTimerApp {
     // Standby buttons
     this.dom.btnExitStandby.addEventListener('click', () => this.toggleStandbyMode(false));
     this.dom.btnToggleNightMode.addEventListener('click', () => this.toggleNightMode());
+
+    // Taskbar Pill Controls
+    if (this.dom.btnTaskbarPillToggle) {
+      this.dom.btnTaskbarPillToggle.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.toggleTimerPlay(this.primaryTimerId);
+      });
+    }
+    if (this.dom.btnTaskbarPillAdd1m) {
+      this.dom.btnTaskbarPillAdd1m.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.addTimeToPrimary(60);
+      });
+    }
+    if (this.dom.btnTaskbarPillRestore) {
+      this.dom.btnTaskbarPillRestore.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.toggleTaskbarBar(false);
+      });
+    }
 
     // Hero Quick Controls
     this.dom.btnAddOneMinute.addEventListener('click', () => {
@@ -396,6 +430,61 @@ class TaskTimerApp {
     });
   }
 
+  createDynamicTaskbarIcon(timer) {
+    if (!timer) return null;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+
+      // Circular background badge
+      ctx.fillStyle = '#101014';
+      ctx.beginPath();
+      ctx.arc(32, 32, 31, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Track
+      ctx.lineWidth = 5.5;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.beginPath();
+      ctx.arc(32, 32, 26, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Progress
+      const fraction = Math.max(0, Math.min(1, timer.remaining / (timer.total || 1)));
+      ctx.strokeStyle = timer.color || '#ff9f0a';
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(32, 32, 26, -Math.PI / 2, -Math.PI / 2 + (fraction * Math.PI * 2));
+      ctx.stroke();
+
+      // Bold text inside the taskbar icon
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const rem = timer.remaining;
+      if (rem >= 3600) {
+        const h = Math.floor(rem / 3600);
+        const m = Math.floor((rem % 3600) / 60);
+        ctx.font = 'bold 20px -apple-system, Segoe UI, sans-serif';
+        ctx.fillText(`${h}h${m}`, 32, 33);
+      } else if (rem >= 60) {
+        const m = Math.ceil(rem / 60);
+        ctx.font = 'bold 26px -apple-system, Segoe UI, sans-serif';
+        ctx.fillText(`${m}m`, 32, 33);
+      } else {
+        ctx.font = 'bold 25px -apple-system, Segoe UI, sans-serif';
+        ctx.fillText(`:${rem.toString().padStart(2, '0')}`, 32, 33);
+      }
+
+      return canvas.toDataURL('image/png');
+    } catch (e) {
+      return null;
+    }
+  }
+
   // -------------------------------------------------------------
   // Taskbar / Menu Bar / Dock IPC Sync
   // -------------------------------------------------------------
@@ -409,8 +498,11 @@ class TaskTimerApp {
       primary = running.reduce((prev, curr) => (curr.remaining < prev.remaining ? curr : prev));
     }
 
+    const dynamicIcon = primary ? this.createDynamicTaskbarIcon(primary) : null;
+
     window.timerAPI.sendTimerUpdate({
       activeCount: running.length,
+      dynamicIcon: dynamicIcon,
       primaryTimer: primary ? {
         id: primary.id,
         label: primary.label,
@@ -606,8 +698,26 @@ class TaskTimerApp {
   }
 
   // -------------------------------------------------------------
-  // View Modes: Mini Window & StandBy Fullscreen
+  // View Modes: Taskbar Docked Pill, Mini Window & StandBy Fullscreen
   // -------------------------------------------------------------
+  toggleTaskbarBar(forceState = null) {
+    this.isTaskbarMode = forceState !== null ? forceState : !this.isTaskbarMode;
+    if (this.isTaskbarMode) {
+      this.dom.body.classList.add('taskbar-mode');
+      if (this.dom.btnToggleTaskbar) this.dom.btnToggleTaskbar.classList.add('active');
+      if (this.isMiniMode) this.toggleMiniMode(false);
+      if (this.isStandbyMode) this.toggleStandbyMode(false);
+    } else {
+      this.dom.body.classList.remove('taskbar-mode');
+      if (this.dom.btnToggleTaskbar) this.dom.btnToggleTaskbar.classList.remove('active');
+    }
+
+    if (window.timerAPI) {
+      window.timerAPI.toggleTaskbarBar(this.isTaskbarMode);
+    }
+    this.render();
+  }
+
   toggleMiniMode(forceState = null) {
     this.isMiniMode = forceState !== null ? forceState : !this.isMiniMode;
     if (this.isMiniMode) {
@@ -762,6 +872,22 @@ class TaskTimerApp {
       this.dom.standbyGiantLabel.textContent = primary.label;
       if (!this.isNightMode) {
         this.dom.standbyGiantDigits.style.color = primary.color || '#ff9f0a';
+      }
+    }
+
+    // 6. Taskbar Pill Widget
+    if (primary && this.dom.taskbarPillDigits) {
+      this.dom.taskbarPillDigits.textContent = this.formatTime(primary.remaining);
+      this.dom.taskbarPillLabel.textContent = primary.label;
+      this.dom.taskbarPillDigits.style.color = primary.color || '#ff9f0a';
+      if (this.dom.taskbarPillProgress) {
+        this.dom.taskbarPillProgress.style.stroke = primary.color || '#ff9f0a';
+        const pillCirc = 2 * Math.PI * 10; // ~62.83
+        const frac = Math.max(0, Math.min(1, primary.remaining / (primary.total || 1)));
+        this.dom.taskbarPillProgress.style.strokeDashoffset = pillCirc * (1 - frac);
+      }
+      if (this.dom.btnTaskbarPillToggle) {
+        this.dom.btnTaskbarPillToggle.textContent = primary.status === 'running' ? '⏸' : '▶';
       }
     }
   }

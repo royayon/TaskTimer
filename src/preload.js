@@ -7,8 +7,9 @@ contextBridge.exposeInMainWorld('timerAPI', {
   // Timer completion alert
   notifyTimerComplete: (timer) => ipcRenderer.send('timer:complete', timer),
   
-  // Window management
+  // Window management modes
   toggleMiniMode: (enable) => ipcRenderer.invoke('window:toggle-mini', enable),
+  toggleTaskbarBar: (enable) => ipcRenderer.invoke('window:toggle-taskbar-bar', enable),
   toggleStandbyMode: (enable) => ipcRenderer.invoke('window:toggle-standby', enable),
   toggleAlwaysOnTop: (enable) => ipcRenderer.invoke('window:toggle-always-on-top', enable),
   minimizeWindow: () => ipcRenderer.send('window:minimize'),

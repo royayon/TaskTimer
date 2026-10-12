@@ -18,6 +18,13 @@
       <span>TaskTimer</span>
     </div>
     <div class="titlebar-actions">
+      <!-- Dock to Taskbar Toggle -->
+      <button class="icon-btn" id="btnToggleTaskbar" title="Dock Directly onto Taskbar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="16" width="20" height="6" rx="2"></rect>
+          <path d="M12 4v8m-4-4 4 4 4-4"></path>
+        </svg>
+      </button>
       <!-- Mini Window Toggle -->
       <button class="icon-btn" id="btnToggleMini" title="Toggle Compact Mini Island">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -226,6 +233,28 @@
     </div>
     <div class="mini-timers-list" id="miniTimersList">
       <!-- Mini timer items rendered here -->
+    </div>
+  </section>
+
+  <!-- Dedicated Taskbar Docked Pill (Snaps directly on top of Windows/Mac Taskbar) -->
+  <section class="taskbar-pill" id="taskbarPill">
+    <div class="taskbar-pill-drag">
+      <div class="taskbar-pill-ring">
+        <svg viewBox="0 0 26 26">
+          <circle cx="13" cy="13" r="10" stroke="rgba(255,255,255,0.15)" stroke-width="2.6" fill="none"></circle>
+          <circle id="taskbarPillProgress" cx="13" cy="13" r="10" stroke="var(--ios-orange)" stroke-width="2.6" fill="none"
+                  stroke-dasharray="62.83" stroke-dashoffset="0" stroke-linecap="round"></circle>
+        </svg>
+      </div>
+      <div class="taskbar-pill-text">
+        <span class="taskbar-pill-digits" id="taskbarPillDigits">23:49</span>
+        <span class="taskbar-pill-label" id="taskbarPillLabel">Deep Focus</span>
+      </div>
+    </div>
+    <div class="taskbar-pill-controls">
+      <button class="pill-btn" id="btnTaskbarPillToggle" title="Play/Pause">⏸</button>
+      <button class="pill-btn" id="btnTaskbarPillAdd1m" title="+1 Min">+1m</button>
+      <button class="pill-btn" id="btnTaskbarPillRestore" title="Restore Full Window">⤢</button>
     </div>
   </section>
 

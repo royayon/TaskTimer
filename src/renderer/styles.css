@@ -1132,3 +1132,123 @@ body.standby-mode.night-mode .lock-persist-dot {
   background: #ff3b30;
   box-shadow: 0 0 8px #ff3b30;
 }
+
+/* -------------------------------------------------------------
+   Taskbar Docked Pill Mode (Docked directly into the Taskbar)
+   ------------------------------------------------------------- */
+body.taskbar-mode {
+  background: transparent !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+body.taskbar-mode::before {
+  display: none !important;
+}
+
+body.taskbar-mode .titlebar,
+body.taskbar-mode .dynamic-island-container,
+body.taskbar-mode .content-scroll,
+body.taskbar-mode .bottom-nav,
+body.taskbar-mode .modal-overlay,
+body.taskbar-mode .mini-widget,
+body.taskbar-mode .standby-display {
+  display: none !important;
+}
+
+.taskbar-pill {
+  display: none;
+}
+
+body.taskbar-mode .taskbar-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(18, 18, 22, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(25px);
+  border-radius: 18px;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+.taskbar-pill-drag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  -webkit-app-region: drag;
+  cursor: grab;
+}
+
+.taskbar-pill-ring {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.taskbar-pill-ring svg {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.taskbar-pill-text {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.taskbar-pill-digits {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ios-orange);
+  letter-spacing: -0.3px;
+}
+
+.taskbar-pill-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 75px;
+}
+
+.taskbar-pill-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.pill-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #ffffff;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pill-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(1.08);
+}
+

@@ -4,7 +4,7 @@ const path = require('path');
 let mainWindow = null;
 let tray = null;
 let powerBlockerId = null;
-let currentMode = 'standard'; // 'standard', 'mini', 'standby'
+let currentMode = 'standard'; // 'standard', 'mini', 'taskbar', 'standby'
 let previousBounds = null;
 let lastTimerData = null;
 
@@ -33,11 +33,11 @@ function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 440,
     height: 760,
-    minWidth: 320,
-    minHeight: 180,
+    minWidth: 200,
+    minHeight: 38,
     frame: false,
-    transparent: false,
-    backgroundColor: '#0a0a0e',
+    transparent: true,
+    backgroundColor: '#00000000',
     title: 'TaskTimer',
     icon: appIcon,
     show: false,
@@ -125,12 +125,19 @@ function updateTrayMenu() {
     {
       label: 'Open TaskTimer',
       click: () => {
+        if (currentMode === 'taskbar') toggleTaskbarBar(false);
         mainWindow.show();
         mainWindow.focus();
       }
     },
     {
-      label: currentMode === 'mini' ? 'Restore Full View' : 'Mini Island Window',
+      label: currentMode === 'taskbar' ? 'Restore Full App' : 'Dock directly on Taskbar',
+      click: () => {
+        toggleTaskbarBar(currentMode !== 'taskbar');
+      }
+    },
+    {
+      label: currentMode === 'mini' ? 'Restore Full View' : 'Mini Floating Window',
       click: () => {
         toggleMiniMode(currentMode !== 'mini');
       }
@@ -219,25 +226,40 @@ function sendActionToRenderer(action) {
 }
 
 // -------------------------------------------------------------
-// IPC Handlers: Timer State Synchronization
+// IPC Handlers: Timer State Synchronization & Taskbar Icon
 // -------------------------------------------------------------
 ipcMain.on('timer:update', (_event, data) => {
   lastTimerData = data;
-  const { activeCount, primaryTimer } = data;
+  const { activeCount, primaryTimer, dynamicIcon } = data;
 
   if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  // 1. Live Dynamic Taskbar Icon rendering (Digits & progress inside taskbar button itself!)
+  if (dynamicIcon) {
+    try {
+      const dynImg = nativeImage.createFromDataURL(dynamicIcon);
+      if (!dynImg.isEmpty()) {
+        mainWindow.setIcon(dynImg);
+        if (process.platform === 'win32' && primaryTimer) {
+          mainWindow.setOverlayIcon(dynImg, primaryTimer.label || 'Timer');
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to apply dynamic taskbar icon:', e);
+    }
+  }
 
   if (primaryTimer && primaryTimer.status === 'running') {
     const progress = Math.min(1.0, Math.max(0.0, (primaryTimer.total - primaryTimer.remaining) / (primaryTimer.total || 1)));
     const formatted = formatSeconds(primaryTimer.remaining);
 
-    // 1. Windows Taskbar Progress Bar & Title
+    // 2. Windows Taskbar Progress Bar & Title
     mainWindow.setProgressBar(progress, { mode: 'normal' });
     const countTag = activeCount > 1 ? ` (+${activeCount - 1})` : '';
     const newTitle = `⏱️ ${formatted} - ${primaryTimer.label}${countTag} | TaskTimer`;
     mainWindow.setTitle(newTitle);
 
-    // 2. macOS Dock & Menu Bar Tray
+    // 3. macOS Dock & Menu Bar Tray
     if (process.platform === 'darwin') {
       app.dock.setBadge(formatted);
       if (tray) {
@@ -245,7 +267,7 @@ ipcMain.on('timer:update', (_event, data) => {
       }
     }
 
-    // 3. Tray Tooltip
+    // 4. Tray Tooltip
     if (tray) {
       tray.setToolTip(`TaskTimer: ${primaryTimer.label} (${formatted})${countTag}`);
     }
@@ -324,12 +346,14 @@ ipcMain.on('timer:complete', (_event, timer) => {
   }
 });
 
-// Window Mode Controls
+// -------------------------------------------------------------
+// Window Mode Controls: Standard, Mini, Taskbar Pill, StandBy
+// -------------------------------------------------------------
 function toggleMiniMode(enable) {
   if (!mainWindow) return false;
 
   if (enable) {
-    if (currentMode !== 'mini') {
+    if (currentMode !== 'mini' && currentMode !== 'taskbar') {
       previousBounds = mainWindow.getBounds();
     }
     currentMode = 'mini';
@@ -340,7 +364,52 @@ function toggleMiniMode(enable) {
   } else {
     currentMode = 'standard';
     mainWindow.setAlwaysOnTop(false);
-    mainWindow.setMinimumSize(320, 180);
+    mainWindow.setMinimumSize(200, 38);
+    if (previousBounds) {
+      mainWindow.setBounds(previousBounds, true);
+    } else {
+      mainWindow.setSize(440, 760, true);
+    }
+  }
+  return currentMode;
+}
+
+// Dedicated Taskbar Pill: Snaps right on top/in the Windows taskbar!
+function toggleTaskbarBar(enable) {
+  if (!mainWindow) return false;
+
+  if (enable) {
+    if (currentMode !== 'taskbar' && currentMode !== 'mini') {
+      previousBounds = mainWindow.getBounds();
+    }
+    currentMode = 'taskbar';
+    mainWindow.setFullScreen(false);
+    mainWindow.setAlwaysOnTop(true, 'screen-saver'); // Stays above taskbar
+    mainWindow.setMinimumSize(180, 38);
+
+    // Compute taskbar position on primary display
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.bounds;
+    const workArea = primaryDisplay.workArea;
+
+    // Windows 11 default taskbar is 48px at the bottom
+    const taskbarWidth = 240;
+    const taskbarHeight = 40;
+    
+    // Position to the right (near system tray) or center
+    const xPos = Math.max(0, width - taskbarWidth - 210);
+    const yPos = Math.max(0, height - taskbarHeight - 6);
+
+    mainWindow.setBounds({
+      x: xPos,
+      y: yPos,
+      width: taskbarWidth,
+      height: taskbarHeight
+    }, true);
+  } else {
+    currentMode = 'standard';
+    mainWindow.setAlwaysOnTop(false);
+    mainWindow.setMinimumSize(200, 38);
     if (previousBounds) {
       mainWindow.setBounds(previousBounds, true);
     } else {
@@ -374,6 +443,7 @@ function toggleStandbyMode(enable) {
 }
 
 ipcMain.handle('window:toggle-mini', (_event, enable) => toggleMiniMode(enable));
+ipcMain.handle('window:toggle-taskbar-bar', (_event, enable) => toggleTaskbarBar(enable));
 ipcMain.handle('window:toggle-standby', (_event, enable) => toggleStandbyMode(enable));
 ipcMain.handle('window:toggle-always-on-top', (_event, enable) => {
   if (mainWindow) {

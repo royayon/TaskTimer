@@ -1,6 +1,6 @@
 # TaskTimer ⏱️
 
-> **Cross-Platform iPhone-Inspired Multi-Timer** with real-time Windows Taskbar & macOS Dock/Menu Bar integration, compact Mini Island window, and Lock Screen persistence.
+> **Cross-Platform iPhone-Inspired Multi-Timer** with real-time Windows Taskbar & macOS Dock/Menu Bar integration, direct Taskbar Docking, compact Mini Island window, and Lock Screen persistence.
 
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
@@ -11,15 +11,22 @@
 ## ✨ Features
 
 ### 🖥️ Native Taskbar & Menu Bar Integration
-- **Windows Taskbar**:
-  - **Live Dynamic Progress Bar**: Shows active countdown progress directly on the taskbar button (`setProgressBar`), turning yellow on pause and red on expiration/alert.
-  - **Live Title & Preview**: Running countdown visible in the taskbar tab and hover preview tooltip (`⏱️ 24:15 - Focus Work`).
-  - **Windows Thumbnail Toolbar**: Interactive Play/Pause, +1m, and Reset controls right on the taskbar hover preview.
-  - **System Tray**: Live countdown tooltip, running timer sub-menu, and quick 5m/25m presets.
+- **Live Dynamic Taskbar Icon (Digits directly in the icon)**:
+  - The taskbar icon itself updates in real time to show the **exact countdown minutes & seconds** (`24m`, `:45s`) with an animated progress ring.
+  - Windows overlay icon badge draws the countdown badge directly on the taskbar button.
+- **Dock Directly into Windows Taskbar**:
+  - Click the **Dock to Taskbar** button (in the top titlebar) to snap a sleek horizontal pill widget (`⏱️ 23:49 • Deep Focus  ▶  +1m  ⤢`) **directly on top of/in your Windows taskbar**.
+  - Pinned `alwaysOnTop` with translucent acrylic glassmorphism that blends into Windows 11.
+  - Can be smoothly dragged anywhere along the taskbar.
+  - One-click `⤢` instantly restores the full iPhone app window.
+- **Windows Taskbar Progress Fill & Title**:
+  - Live green progress bar fill on the taskbar icon, turning yellow on pause and red on completion.
+  - *Tip for Windows 11*: In `Settings > Personalization > Taskbar > Taskbar behaviors`, set **"Combine taskbar buttons and hide labels"** to **"Never"** to show the live timer title directly inside the taskbar tab!
+- **Windows Thumbnail Toolbar**:
+  - Hover over the taskbar icon to reveal instant **Play/Pause**, **+1m**, and **Reset** controls.
 - **macOS Menu Bar & Dock**:
-  - **Menu Bar Tray Title**: Dynamic real-time timer countdown text displayed right in the top macOS Menu Bar (e.g. `⏱️ 04:32`).
+  - **Menu Bar Tray Title**: Dynamic real-time countdown text rendered in the top macOS Menu Bar (e.g. `⏱️ 04:32`).
   - **Dock Badge**: Real-time minute/second countdown badge on the Dock icon.
-  - **Dock Progress**: Circular/linear progress fill on Dock tile.
 
 ### 📱 Authentic iPhone Timer UI & Animations
 - **Dynamic Island**: Collapsible header pill with pulsing glowing indicator, timer title, and live countdown.
@@ -41,50 +48,47 @@
   - Apple Watch Ultra-inspired **Night Mode** (crimson red shift for dark rooms).
   - Active wake-lock prevents screen from sleeping while counting down.
 
-### 🪟 Compact Mini Island (PiP) Window
-- Instant toggle to a sleek floating mini widget (340x200).
-- Draggable, `alwaysOnTop` pinned window to monitor timers while multitasking.
-
 ---
 
-## 🚀 Quick Start
+## 📦 Distribution & Installers
 
-### Prerequisites
-- Node.js (v18+ recommended)
-- npm
+### Building Installers
 
-### Installation
 ```bash
-# Clone the repository
-git clone https://github.com/royayon/TaskTimer.git
-cd TaskTimer
+# Build Windows Installer (.exe Setup & Portable .exe)
+npm run dist:win
 
-# Install dependencies
-npm install
-
-# Run the app
-npm start
+# Build macOS Application (.dmg and .zip) [on macOS or via GitHub Actions]
+npm run dist:mac
 ```
+
+### Generated Outputs (`dist/`)
+- **`dist/TaskTimer Setup 1.0.0.exe`**: Full Windows NSIS installer with Desktop and Start Menu shortcuts.
+- **`dist/TaskTimer 1.0.0.exe`**: Portable single-file Windows executable (no installation required).
+- **`dist/TaskTimer-1.0.0.dmg`**: Apple macOS disk image installer (built via GitHub Actions on `macos-latest`).
+- **`dist/TaskTimer-1.0.0-mac.zip`**: Apple macOS zipped bundle.
 
 ---
 
 ## 🛠️ Project Structure
 ```text
 TaskTimer/
-├── package.json               # Project manifest & Electron scripts
+├── .github/workflows/
+│   └── build.yml              # CI/CD: Automated Windows .exe & macOS .dmg builds
+├── package.json               # Project manifest, electron-builder targets & scripts
 ├── scripts/
-│   └── create_icons.py        # Icon generator script (app & tray icons)
+│   └── create_icons.py        # Icon generator (ICO, PNG 512x512, tray icons)
+├── build/                     # Electron-builder icon assets
+│   ├── icon.ico
+│   └── icon.png
 ├── src/
-│   ├── main.js                # Electron main process (Taskbar, Tray, IPC, PowerMonitor)
+│   ├── main.js                # Main process (Taskbar docking, dynamic icon, Tray, IPC)
 │   ├── preload.js             # Context bridge for secure IPC
 │   ├── assets/                # App icons & tray assets
-│   │   ├── icon.png
-│   │   ├── tray.png
-│   │   └── tray-active.png
 │   └── renderer/
-│       ├── index.html         # iOS UI layout & StandBy view
-│       ├── styles.css         # Glassmorphism, animations, dark mode
-│       ├── app.js             # Timer engine, UI reactivity & state persistence
+│       ├── index.html         # iOS UI layout, Taskbar pill, & StandBy view
+│       ├── styles.css         # Glassmorphism, taskbar-mode, animations
+│       ├── app.js             # Timer engine, dynamic icon generator, reactivity
 │       └── sound.js           # Web Audio API synthesizers
 └── README.md
 ```
