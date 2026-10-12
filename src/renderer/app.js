@@ -192,8 +192,6 @@ class TaskTimerApp {
 
       // Taskbar Stack & Pill Widget
       taskbarPillWrapper: document.getElementById('taskbarPillWrapper'),
-      stackBackCard1: document.getElementById('stackBackCard1'),
-      stackBackCard2: document.getElementById('stackBackCard2'),
       taskbarPill: document.getElementById('taskbarPill'),
       pillBodyInteractive: document.getElementById('pillBodyInteractive'),
       taskbarPillProgress: document.getElementById('taskbarPillProgress'),
@@ -1294,24 +1292,11 @@ class TaskTimerApp {
         this.dom.btnTaskbarPillToggle.textContent = primary.status === 'running' ? '⏸' : '▶';
       }
 
-      // 3D Stacking Behind Pill
+      // Active Timers Stack Counter for Switcher (< 1/3 >)
       const running = this.timers.filter(t => t.status === 'running');
       const stackPool = running.length > 0 ? running : this.timers;
 
-      if (this.dom.stackBackCard1 && this.dom.stackBackCard2) {
-        if (stackPool.length >= 3) {
-          this.dom.stackBackCard1.style.display = 'block';
-          this.dom.stackBackCard2.style.display = 'block';
-        } else if (stackPool.length === 2) {
-          this.dom.stackBackCard1.style.display = 'block';
-          this.dom.stackBackCard2.style.display = 'none';
-        } else {
-          this.dom.stackBackCard1.style.display = 'none';
-          this.dom.stackBackCard2.style.display = 'none';
-        }
-      }
-
-      // Stack Switcher Badge
+      // Stack Switcher Badge (< 1/N >)
       if (this.dom.pillStackSwitcher) {
         if (stackPool.length > 1) {
           this.dom.pillStackSwitcher.style.display = 'flex';
