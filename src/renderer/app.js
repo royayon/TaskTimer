@@ -1173,7 +1173,10 @@ class TaskTimerApp {
         this.primaryTimerId = t.id;
         this.render();
         this.syncWithOsTaskbar();
-        chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        if (this.dom.heroStackTabs) {
+          const targetLeft = chip.offsetLeft - (this.dom.heroStackTabs.clientWidth / 2) + (chip.clientWidth / 2);
+          this.dom.heroStackTabs.scrollTo({ left: targetLeft, behavior: 'smooth' });
+        }
       });
 
       this.dom.heroStackTabs.appendChild(chip);
