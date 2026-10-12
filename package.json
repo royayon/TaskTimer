@@ -1,0 +1,23 @@
+{
+  "name": "tasktimer",
+  "version": "1.0.0",
+  "description": "Cross-platform iPhone-inspired multi-timer with Windows taskbar & macOS menu bar/dock integration, mini-window, and lockscreen persistence",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "icons": "python scripts/create_icons.py"
+  },
+  "keywords": [
+    "timer",
+    "taskbar",
+    "electron",
+    "ios-style",
+    "multitimer",
+    "lockscreen"
+  ],
+  "author": "royayon",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^44.7.0"
+  }
+}

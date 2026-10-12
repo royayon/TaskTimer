@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskTimer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Custom Glass Titlebar -->
+  <header class="titlebar">
+    <div class="titlebar-brand">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      <span>TaskTimer</span>
+    </div>
+    <div class="titlebar-actions">
+      <!-- Mini Window Toggle -->
+      <button class="icon-btn" id="btnToggleMini" title="Toggle Compact Mini Island">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <rect x="9" y="9" width="10" height="10" rx="1"></rect>
+        </svg>
+      </button>
+      <!-- StandBy Ambient Lockscreen Mode -->
+      <button class="icon-btn" id="btnToggleStandby" title="Ambient OLED StandBy Mode (iPhone Lockscreen)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+      <!-- Always On Top Pin -->
+      <button class="icon-btn" id="btnPinWindow" title="Keep Window Always on Top">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="17" x2="12" y2="22"></line>
+          <path d="M5 17h14v-2l-3-3V5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v7l-3 3v2z"></path>
+        </svg>
+      </button>
+      <!-- Minimize -->
+      <button class="icon-btn" id="btnMinimize" title="Minimize">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+      <!-- Hide to Tray / Close -->
+      <button class="icon-btn" id="btnClose" title="Close (Keeps Running in Background)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Dynamic Island Pill Header -->
+  <section class="dynamic-island-container">
+    <div class="dynamic-island" id="dynamicIsland">
+      <div class="island-icon pulse" id="islandIcon">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
+      <div class="island-info">
+        <span class="island-label" id="islandLabel">Focus Timer</span>
+        <span class="island-time" id="islandTime">25:00</span>
+      </div>
+      <span class="island-badge" id="islandBadge">Live</span>
+    </div>
+  </section>
+
+  <!-- Main Scrollable Content -->
+  <main class="content-scroll">
+    <!-- Hero Primary Timer Card with Radial Progress Ring -->
+    <section class="hero-timer-card">
+      <div class="ring-wrapper">
+        <svg class="ring-svg" viewBox="0 0 260 260">
+          <circle class="ring-track" cx="130" cy="130" r="108"></circle>
+          <circle class="ring-progress" id="heroProgressRing" cx="130" cy="130" r="108"
+                  stroke-dasharray="678.58" stroke-dashoffset="0"></circle>
+        </svg>
+        <div class="ring-center-content">
+          <div class="timer-label-tag" id="heroTimerTag">
+            <span id="heroCategoryIcon">🎯</span>
+            <span id="heroTimerLabel">Focus Work</span>
+          </div>
+          <div class="timer-digits" id="heroTimerDigits">25:00</div>
+          <div class="timer-meta" id="heroTimerMeta">
+            <span id="heroEndTime">Ends at 11:25 AM</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero Timer Quick Controls -->
+      <div class="timer-controls">
+        <button class="btn-circle btn-secondary" id="btnAddOneMinute" title="Add 1 Minute">
+          +1m
+        </button>
+        <button class="btn-circle btn-primary-action" id="btnHeroTogglePlay" title="Start/Pause">
+          <svg id="heroPlayIcon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+        </button>
+        <button class="btn-circle btn-secondary" id="btnHeroReset" title="Reset Timer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- Multi-Timers Overview Section -->
+    <section>
+      <div class="section-header">
+        <div class="section-title">
+          <span>All Timers</span>
+          <span class="count-pill" id="allTimersCount">0</span>
+        </div>
+      </div>
+      <div class="timers-list" id="timersListContainer">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Floating Add Timer Bottom Button -->
+  <footer class="bottom-nav">
+    <button class="btn-add-timer" id="btnOpenAddModal">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      <span>New Timer</span>
+    </button>
+  </footer>
+
+  <!-- iOS Add Timer Bottom Sheet Modal -->
+  <div class="modal-overlay" id="addTimerModal">
+    <div class="modal-sheet">
+      <div class="modal-sheet-handle"></div>
+      <div class="modal-header">
+        <h3>Create Timer</h3>
+        <button class="btn-close-modal" id="btnCloseAddModal">✕</button>
+      </div>
+
+      <!-- Quick Presets -->
+      <div class="presets-group">
+        <span class="presets-title">Quick Presets</span>
+        <div class="presets-chips">
+          <button class="preset-chip" data-h="0" data-m="1" data-s="0" data-label="Quick Minute">1 min</button>
+          <button class="preset-chip" data-h="0" data-m="3" data-s="0" data-label="Green Tea">3 min Tea</button>
+          <button class="preset-chip" data-h="0" data-m="5" data-s="0" data-label="Quick Break">5 min</button>
+          <button class="preset-chip" data-h="0" data-m="10" data-s="0" data-label="Short Stretch">10 min</button>
+          <button class="preset-chip" data-h="0" data-m="15" data-s="0" data-label="Quick Task">15 min</button>
+          <button class="preset-chip" data-h="0" data-m="25" data-s="0" data-label="Pomodoro Focus">25 min Focus</button>
+          <button class="preset-chip" data-h="0" data-m="45" data-s="0" data-label="Deep Work">45 min</button>
+          <button class="preset-chip" data-h="1" data-m="0" data-s="0" data-label="1-Hour Session">1 Hour</button>
+        </div>
+      </div>
+
+      <!-- iOS Time Picker Wheel / Steppers -->
+      <div class="picker-container">
+        <div class="picker-col">
+          <input type="number" id="inputHours" class="picker-input" min="0" max="23" value="00">
+          <span class="picker-label">Hours</span>
+        </div>
+        <span class="picker-separator">:</span>
+        <div class="picker-col">
+          <input type="number" id="inputMinutes" class="picker-input" min="0" max="59" value="25">
+          <span class="picker-label">Mins</span>
+        </div>
+        <span class="picker-separator">:</span>
+        <div class="picker-col">
+          <input type="number" id="inputSeconds" class="picker-input" min="0" max="59" value="00">
+          <span class="picker-label">Secs</span>
+        </div>
+      </div>
+
+      <!-- Label / Name input -->
+      <div class="form-group">
+        <label class="presets-title" for="inputTimerLabel">Timer Label</label>
+        <input type="text" id="inputTimerLabel" class="form-input" placeholder="e.g. Focus Session, Laundry, Cooking" value="Focus Work">
+      </div>
+
+      <!-- Color Theme & Sound Picker -->
+      <div class="form-group">
+        <span class="presets-title">Accent Theme & Ringtone</span>
+        <div class="options-row" style="justify-content: space-between;">
+          <div class="options-row" id="colorPickerRow">
+            <div class="color-dot selected" data-color="#ff9f0a" style="background: #ff9f0a;"></div>
+            <div class="color-dot" data-color="#30d158" style="background: #30d158;"></div>
+            <div class="color-dot" data-color="#64d2ff" style="background: #64d2ff;"></div>
+            <div class="color-dot" data-color="#bf5af2" style="background: #bf5af2;"></div>
+            <div class="color-dot" data-color="#ff453a" style="background: #ff453a;"></div>
+            <div class="color-dot" data-color="#ffd60a" style="background: #ffd60a;"></div>
+          </div>
+          <select id="selectSound" class="sound-select">
+            <option value="radar">Radar (iOS)</option>
+            <option value="chimes">Chimes (Melodic)</option>
+            <option value="apex">Apex (Modern)</option>
+            <option value="beacon">Beacon (Glass)</option>
+            <option value="bell">Zen Bell</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Submit / Start Button -->
+      <button class="btn-submit-timer" id="btnSubmitTimer">Start Timer</button>
+    </div>
+  </div>
+
+  <!-- Mini Island Widget (Visible when Mini Mode is active) -->
+  <section class="mini-widget" id="miniWidget">
+    <div class="mini-widget-header">
+      <div class="mini-widget-title">
+        <span style="color: var(--ios-orange);">⏱️</span>
+        <span>TaskTimer Mini</span>
+      </div>
+      <div class="mini-widget-controls">
+        <button class="mini-btn" id="btnRestoreFromMini" title="Restore Full App">⤢</button>
+        <button class="mini-btn" id="btnCloseMini" title="Close">✕</button>
+      </div>
+    </div>
+    <div class="mini-timers-list" id="miniTimersList">
+      <!-- Mini timer items rendered here -->
+    </div>
+  </section>
+
+  <!-- StandBy Ambient OLED Lockscreen Display (iPhone StandBy / Nightstand Mode) -->
+  <section class="standby-display" id="standbyDisplay">
+    <div class="standby-top">
+      <div class="standby-time-now" id="standbyClockNow">12:00 PM</div>
+      <div class="standby-controls">
+        <button class="icon-btn" id="btnToggleNightMode" title="Toggle Night Red Shift">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btnExitStandby" title="Exit StandBy Mode">✕</button>
+      </div>
+    </div>
+
+    <div class="standby-center">
+      <div class="standby-giant-timer">
+        <div class="standby-giant-digits" id="standbyGiantDigits">25:00</div>
+        <div class="standby-giant-label" id="standbyGiantLabel">Focus Work</div>
+      </div>
+    </div>
+
+    <div class="standby-bottom">
+      <div class="lock-persist-badge">
+        <div class="lock-persist-dot"></div>
+        <span>Active across Lockscreen • Wake Lock Active</span>
+      </div>
+      <div>Press Esc or ✕ to exit Ambient View</div>
+    </div>
+  </section>
+
+  <script src="sound.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
