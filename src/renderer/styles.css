@@ -35,6 +35,37 @@
   padding: 0;
   user-select: none;
   -webkit-user-drag: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+/* Universal Apple Glass Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.42);
+}
+
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 body {
@@ -879,16 +910,23 @@ body::before {
    Mini Island Window Mode (PiP / Floating Pill)
    ------------------------------------------------------------- */
 body.mini-mode {
-  background: transparent;
+  background: transparent !important;
+  overflow: hidden !important;
   padding: 4px;
 }
 
+body.mini-mode::before {
+  display: none !important;
+}
+
 body.mini-mode .titlebar,
-body.mini-mode .hero-timer-card,
-body.mini-mode .section-header,
+body.mini-mode .dynamic-island-container,
+body.mini-mode .content-scroll,
 body.mini-mode .bottom-nav,
 body.mini-mode .modal-overlay,
-body.mini-mode .dynamic-island-container {
+body.mini-mode .standby-display,
+body.mini-mode .taskbar-pill-container,
+body.mini-mode .taskbar-pill {
   display: none !important;
 }
 
@@ -1134,11 +1172,63 @@ body.standby-mode.night-mode .lock-persist-dot {
 }
 
 /* -------------------------------------------------------------
+   Hero Stack Tabs (Main Window Active Timers Switcher)
+   ------------------------------------------------------------- */
+.hero-stack-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 4px 6px 12px 6px;
+  scrollbar-width: none;
+}
+
+.hero-stack-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.hero-stack-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--surface-border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.hero-stack-chip:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.hero-stack-chip.active {
+  background: rgba(255, 159, 10, 0.22);
+  border-color: var(--ios-orange);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(255, 159, 10, 0.35);
+}
+
+.hero-stack-chip-time {
+  font-weight: 700;
+  color: var(--ios-orange);
+}
+
+/* -------------------------------------------------------------
    Taskbar Docked Pill Mode (Docked directly into the Taskbar)
    ------------------------------------------------------------- */
 body.taskbar-mode {
   background: transparent !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   padding: 0 !important;
   margin: 0 !important;
 }
@@ -1157,33 +1247,102 @@ body.taskbar-mode .standby-display {
   display: none !important;
 }
 
-.taskbar-pill {
+.taskbar-pill-wrapper {
   display: none;
 }
 
-body.taskbar-mode .taskbar-pill {
+body.taskbar-mode .taskbar-pill-wrapper {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  justify-content: flex-end;
   width: 100vw;
   height: 100vh;
-  background: rgba(18, 18, 22, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(25px);
-  border-radius: 18px;
-  padding: 0 10px;
+  position: relative;
   box-sizing: border-box;
 }
 
-.taskbar-pill-drag {
+/* 3D Physical Card Stack Layers behind the pill */
+.stack-back-card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  border-radius: 14px 14px 0 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  display: none;
+}
+
+.stack-back-1 {
+  width: 92%;
+  height: 8px;
+  bottom: 37px;
+  background: rgba(36, 36, 44, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-bottom: none;
+  box-shadow: 0 -3px 8px rgba(0, 0, 0, 0.5);
+  z-index: 5;
+}
+
+.stack-back-2 {
+  width: 84%;
+  height: 8px;
+  bottom: 42px;
+  background: rgba(50, 50, 62, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: none;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.6);
+  z-index: 4;
+}
+
+.taskbar-pill {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 40px;
+  background: rgba(18, 18, 22, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.8), 0 0 1px rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(28px);
+  border-radius: 20px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.taskbar-pill:hover {
+  border-color: rgba(255, 159, 10, 0.45);
+  background: rgba(24, 24, 30, 0.98);
+}
+
+.pill-drag-grip {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.28);
+  padding: 0 4px 0 2px;
+  cursor: grab;
+  -webkit-app-region: drag;
+  user-select: none;
+  letter-spacing: -1px;
+}
+
+.pill-body-interactive {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: 1;
   min-width: 0;
-  -webkit-app-region: drag;
-  cursor: grab;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 12px;
+  -webkit-app-region: no-drag;
+  transition: background 0.15s ease;
+}
+
+.pill-body-interactive:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .taskbar-pill-ring {
@@ -1221,7 +1380,53 @@ body.taskbar-mode .taskbar-pill {
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 75px;
+  max-width: 65px;
+}
+
+/* Stack Switcher Chevrons & Badge */
+.pill-stack-switcher {
+  display: none;
+  align-items: center;
+  gap: 1px;
+  -webkit-app-region: no-drag;
+  margin: 0 3px;
+}
+
+.pill-stack-chevron {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.pill-stack-chevron:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.pill-stack-badge {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.pill-stack-badge:hover {
+  background: var(--ios-orange);
+  color: #000;
+  border-color: var(--ios-orange);
 }
 
 .taskbar-pill-controls {
@@ -1248,7 +1453,103 @@ body.taskbar-mode .taskbar-pill {
 }
 
 .pill-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.24);
   transform: scale(1.08);
 }
+
+/* Stack Dropup Drawer */
+.taskbar-stack-dropdown {
+  display: none;
+  position: absolute;
+  bottom: 46px;
+  left: 6px;
+  right: 6px;
+  background: rgba(16, 16, 20, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 8px 10px;
+  box-shadow: 0 -8px 26px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(28px);
+  z-index: 100;
+  -webkit-app-region: no-drag;
+}
+
+.taskbar-stack-dropdown.open {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stack-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 2px 4px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stack-dropdown-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.stack-dropdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 110px;
+  overflow-y: auto;
+}
+
+.stack-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.stack-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.stack-dropdown-item.active {
+  background: rgba(255, 159, 10, 0.2);
+  border: 1px solid rgba(255, 159, 10, 0.4);
+}
+
+.stack-dropdown-item-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stack-dropdown-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.stack-dropdown-digits {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ios-orange);
+}
+
 

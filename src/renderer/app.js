@@ -175,11 +175,26 @@ class TaskTimerApp {
       btnToggleNightMode: document.getElementById('btnToggleNightMode'),
       btnExitStandby: document.getElementById('btnExitStandby'),
 
-      // Taskbar Pill Widget
+      // Hero Stack Tabs
+      heroStackTabs: document.getElementById('heroStackTabs'),
+
+      // Taskbar Stack & Pill Widget
+      taskbarPillWrapper: document.getElementById('taskbarPillWrapper'),
+      stackBackCard1: document.getElementById('stackBackCard1'),
+      stackBackCard2: document.getElementById('stackBackCard2'),
       taskbarPill: document.getElementById('taskbarPill'),
+      pillBodyInteractive: document.getElementById('pillBodyInteractive'),
       taskbarPillProgress: document.getElementById('taskbarPillProgress'),
       taskbarPillDigits: document.getElementById('taskbarPillDigits'),
       taskbarPillLabel: document.getElementById('taskbarPillLabel'),
+      pillStackSwitcher: document.getElementById('pillStackSwitcher'),
+      btnStackPrev: document.getElementById('btnStackPrev'),
+      btnStackNext: document.getElementById('btnStackNext'),
+      btnStackBadge: document.getElementById('btnStackBadge'),
+      stackCounterText: document.getElementById('stackCounterText'),
+      taskbarStackDropdown: document.getElementById('taskbarStackDropdown'),
+      btnCloseStackDropdown: document.getElementById('btnCloseStackDropdown'),
+      stackDropdownList: document.getElementById('stackDropdownList'),
       btnTaskbarPillToggle: document.getElementById('btnTaskbarPillToggle'),
       btnTaskbarPillAdd1m: document.getElementById('btnTaskbarPillAdd1m'),
       btnTaskbarPillRestore: document.getElementById('btnTaskbarPillRestore')
@@ -208,21 +223,74 @@ class TaskTimerApp {
     this.dom.btnExitStandby.addEventListener('click', () => this.toggleStandbyMode(false));
     this.dom.btnToggleNightMode.addEventListener('click', () => this.toggleNightMode());
 
+    // Click anywhere on Taskbar Pill Body -> ENLARGE APP IMMEDIATELY!
+    if (this.dom.pillBodyInteractive) {
+      this.dom.pillBodyInteractive.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.toggleTaskbarBar(false);
+      });
+    }
+
+    // Stack Chevrons: Cycle Previous / Next Active Timer
+    if (this.dom.btnStackPrev) {
+      this.dom.btnStackPrev.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.soundEngine.playTick();
+        this.cycleActiveTimer(-1);
+      });
+    }
+    if (this.dom.btnStackNext) {
+      this.dom.btnStackNext.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.soundEngine.playTick();
+        this.cycleActiveTimer(1);
+      });
+    }
+
+    // Stack Badge: Toggle Dropdown Popover
+    if (this.dom.btnStackBadge) {
+      this.dom.btnStackBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.soundEngine.playTick();
+        this.toggleStackDropdown();
+      });
+    }
+
+    if (this.dom.btnCloseStackDropdown) {
+      this.dom.btnCloseStackDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeStackDropdown();
+      });
+    }
+
+    // Mouse wheel over taskbar pill cycles active timers
+    if (this.dom.taskbarPill) {
+      this.dom.taskbarPill.addEventListener('wheel', (e) => {
+        if (this.timers.length > 1) {
+          e.preventDefault();
+          this.cycleActiveTimer(e.deltaY > 0 ? 1 : -1);
+        }
+      });
+    }
+
     // Taskbar Pill Controls
     if (this.dom.btnTaskbarPillToggle) {
-      this.dom.btnTaskbarPillToggle.addEventListener('click', () => {
+      this.dom.btnTaskbarPillToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
         window.soundEngine.playTick();
         this.toggleTimerPlay(this.primaryTimerId);
       });
     }
     if (this.dom.btnTaskbarPillAdd1m) {
-      this.dom.btnTaskbarPillAdd1m.addEventListener('click', () => {
+      this.dom.btnTaskbarPillAdd1m.addEventListener('click', (e) => {
+        e.stopPropagation();
         window.soundEngine.playTick();
         this.addTimeToPrimary(60);
       });
     }
     if (this.dom.btnTaskbarPillRestore) {
-      this.dom.btnTaskbarPillRestore.addEventListener('click', () => {
+      this.dom.btnTaskbarPillRestore.addEventListener('click', (e) => {
+        e.stopPropagation();
         window.soundEngine.playTick();
         this.toggleTaskbarBar(false);
       });
@@ -770,15 +838,88 @@ class TaskTimerApp {
   // -------------------------------------------------------------
   // Rendering & Animations
   // -------------------------------------------------------------
-  formatTime(totalSec) {
-    if (totalSec === undefined || totalSec === null) return '00:00';
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
-    if (h > 0) {
-      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  cycleActiveTimer(direction = 1) {
+    if (this.timers.length <= 1) return;
+    const running = this.timers.filter(t => t.status === 'running');
+    const pool = running.length > 0 ? running : this.timers;
+    const currentIndex = pool.findIndex(t => t.id === this.primaryTimerId);
+    let nextIndex = (currentIndex + direction) % pool.length;
+    if (nextIndex < 0) nextIndex = pool.length - 1;
+    this.primaryTimerId = pool[nextIndex].id;
+    this.render();
+    this.syncWithOsTaskbar();
+  }
+
+  toggleStackDropdown() {
+    if (!this.dom.taskbarStackDropdown) return;
+    const isOpen = this.dom.taskbarStackDropdown.classList.contains('open');
+    if (isOpen) {
+      this.closeStackDropdown();
+    } else {
+      this.dom.taskbarStackDropdown.classList.add('open');
+      if (window.timerAPI) window.timerAPI.expandTaskbarStack(true);
+      this.renderStackDropdownList();
     }
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+
+  closeStackDropdown() {
+    if (!this.dom.taskbarStackDropdown) return;
+    this.dom.taskbarStackDropdown.classList.remove('open');
+    if (window.timerAPI) window.timerAPI.expandTaskbarStack(false);
+  }
+
+  renderStackDropdownList() {
+    if (!this.dom.stackDropdownList) return;
+    this.dom.stackDropdownList.innerHTML = '';
+    this.timers.forEach(t => {
+      const item = document.createElement('div');
+      item.className = `stack-dropdown-item ${t.id === this.primaryTimerId ? 'active' : ''}`;
+      item.innerHTML = `
+        <div class="stack-dropdown-item-left">
+          <span>${t.category || '⏱️'}</span>
+          <span class="stack-dropdown-name">${t.label}</span>
+        </div>
+        <span class="stack-dropdown-digits" style="color: ${t.color || '#ff9f0a'};">
+          ${this.formatTime(t.remaining)}
+        </span>
+      `;
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.soundEngine.playTick();
+        this.primaryTimerId = t.id;
+        this.closeStackDropdown();
+        this.render();
+        this.syncWithOsTaskbar();
+      });
+      this.dom.stackDropdownList.appendChild(item);
+    });
+  }
+
+  renderHeroStackTabs() {
+    if (!this.dom.heroStackTabs) return;
+    if (this.timers.length <= 1) {
+      this.dom.heroStackTabs.style.display = 'none';
+      return;
+    }
+    this.dom.heroStackTabs.style.display = 'flex';
+    this.dom.heroStackTabs.innerHTML = '';
+
+    this.timers.forEach(t => {
+      const chip = document.createElement('div');
+      chip.className = `hero-stack-chip ${t.id === this.primaryTimerId ? 'active' : ''}`;
+      chip.innerHTML = `
+        <span>${t.category || '⏱️'}</span>
+        <span>${t.label}</span>
+        <span class="hero-stack-chip-time" style="color: ${t.color || '#ff9f0a'};">${this.formatTime(t.remaining)}</span>
+      `;
+      chip.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.primaryTimerId = t.id;
+        this.render();
+        this.syncWithOsTaskbar();
+      });
+      this.dom.heroStackTabs.appendChild(chip);
+    });
   }
 
   render() {
@@ -857,6 +998,9 @@ class TaskTimerApp {
       }
     }
 
+    // 2. Hero Stack Switcher Tabs
+    this.renderHeroStackTabs();
+
     // 3. Timers Overview List
     this.dom.allTimersCount.textContent = this.timers.length;
     this.renderTimersList();
@@ -875,7 +1019,7 @@ class TaskTimerApp {
       }
     }
 
-    // 6. Taskbar Pill Widget
+    // 6. Taskbar Pill Widget & 3D Card Stack
     if (primary && this.dom.taskbarPillDigits) {
       this.dom.taskbarPillDigits.textContent = this.formatTime(primary.remaining);
       this.dom.taskbarPillLabel.textContent = primary.label;
@@ -888,6 +1032,36 @@ class TaskTimerApp {
       }
       if (this.dom.btnTaskbarPillToggle) {
         this.dom.btnTaskbarPillToggle.textContent = primary.status === 'running' ? '⏸' : '▶';
+      }
+
+      // 3D Stacking Behind Pill
+      const running = this.timers.filter(t => t.status === 'running');
+      const stackPool = running.length > 0 ? running : this.timers;
+
+      if (this.dom.stackBackCard1 && this.dom.stackBackCard2) {
+        if (stackPool.length >= 3) {
+          this.dom.stackBackCard1.style.display = 'block';
+          this.dom.stackBackCard2.style.display = 'block';
+        } else if (stackPool.length === 2) {
+          this.dom.stackBackCard1.style.display = 'block';
+          this.dom.stackBackCard2.style.display = 'none';
+        } else {
+          this.dom.stackBackCard1.style.display = 'none';
+          this.dom.stackBackCard2.style.display = 'none';
+        }
+      }
+
+      // Stack Switcher Badge
+      if (this.dom.pillStackSwitcher) {
+        if (stackPool.length > 1) {
+          this.dom.pillStackSwitcher.style.display = 'flex';
+          const currIdx = stackPool.findIndex(t => t.id === primary.id);
+          if (this.dom.stackCounterText) {
+            this.dom.stackCounterText.textContent = `${currIdx !== -1 ? currIdx + 1 : 1}/${stackPool.length}`;
+          }
+        } else {
+          this.dom.pillStackSwitcher.style.display = 'none';
+        }
       }
     }
   }

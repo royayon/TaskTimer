@@ -82,6 +82,11 @@
   <main class="content-scroll">
     <!-- Hero Primary Timer Card with Radial Progress Ring -->
     <section class="hero-timer-card">
+      <!-- Active Timers Stack Switcher Bar -->
+      <div class="hero-stack-tabs" id="heroStackTabs">
+        <!-- Rendered dynamically when multiple timers are active -->
+      </div>
+
       <div class="ring-wrapper">
         <svg class="ring-svg" viewBox="0 0 260 260">
           <circle class="ring-track" cx="130" cy="130" r="108"></circle>
@@ -236,27 +241,60 @@
     </div>
   </section>
 
-  <!-- Dedicated Taskbar Docked Pill (Snaps directly on top of Windows/Mac Taskbar) -->
-  <section class="taskbar-pill" id="taskbarPill">
-    <div class="taskbar-pill-drag">
-      <div class="taskbar-pill-ring">
-        <svg viewBox="0 0 26 26">
-          <circle cx="13" cy="13" r="10" stroke="rgba(255,255,255,0.15)" stroke-width="2.6" fill="none"></circle>
-          <circle id="taskbarPillProgress" cx="13" cy="13" r="10" stroke="var(--ios-orange)" stroke-width="2.6" fill="none"
-                  stroke-dasharray="62.83" stroke-dashoffset="0" stroke-linecap="round"></circle>
-        </svg>
+  <!-- Dedicated Taskbar Stack Container -->
+  <div class="taskbar-pill-wrapper" id="taskbarPillWrapper">
+    <!-- 3D Stack Layer Cards (visible when multiple timers are active) -->
+    <div class="stack-back-card stack-back-2" id="stackBackCard2"></div>
+    <div class="stack-back-card stack-back-1" id="stackBackCard1"></div>
+
+    <!-- Front Taskbar Pill -->
+    <section class="taskbar-pill" id="taskbarPill">
+      <!-- Drag Grip on left -->
+      <div class="pill-drag-grip" title="Drag along taskbar">⋮⋮</div>
+
+      <!-- Clickable Body to Enlarge App -->
+      <div class="pill-body-interactive" id="pillBodyInteractive" title="Click anywhere to enlarge TaskTimer">
+        <div class="taskbar-pill-ring">
+          <svg viewBox="0 0 26 26">
+            <circle cx="13" cy="13" r="10" stroke="rgba(255,255,255,0.15)" stroke-width="2.6" fill="none"></circle>
+            <circle id="taskbarPillProgress" cx="13" cy="13" r="10" stroke="var(--ios-orange)" stroke-width="2.6" fill="none"
+                    stroke-dasharray="62.83" stroke-dashoffset="0" stroke-linecap="round"></circle>
+          </svg>
+        </div>
+        <div class="taskbar-pill-text">
+          <span class="taskbar-pill-digits" id="taskbarPillDigits">21:00</span>
+          <span class="taskbar-pill-label" id="taskbarPillLabel">Deep Focus</span>
+        </div>
       </div>
-      <div class="taskbar-pill-text">
-        <span class="taskbar-pill-digits" id="taskbarPillDigits">23:49</span>
-        <span class="taskbar-pill-label" id="taskbarPillLabel">Deep Focus</span>
+
+      <!-- Multiple Timers Stack Switcher: Cycle Chevrons and Dropdown Menu -->
+      <div class="pill-stack-switcher" id="pillStackSwitcher">
+        <button class="pill-stack-chevron" id="btnStackPrev" title="Previous Active Timer">‹</button>
+        <button class="pill-stack-badge" id="btnStackBadge" title="Click to view all active timers">
+          <span id="stackCounterText">1/3</span>
+        </button>
+        <button class="pill-stack-chevron" id="btnStackNext" title="Next Active Timer">›</button>
+      </div>
+
+      <!-- Quick Action Controls -->
+      <div class="taskbar-pill-controls">
+        <button class="pill-btn" id="btnTaskbarPillToggle" title="Play/Pause">⏸</button>
+        <button class="pill-btn" id="btnTaskbarPillAdd1m" title="+1 Min">+1m</button>
+        <button class="pill-btn" id="btnTaskbarPillRestore" title="Enlarge to Full Window">⤢</button>
+      </div>
+    </section>
+
+    <!-- Stack Drop-Up Menu / Popover (Shows all timers when clicking the stack badge) -->
+    <div class="taskbar-stack-dropdown" id="taskbarStackDropdown">
+      <div class="stack-dropdown-header">
+        <span>Active Timers</span>
+        <button class="stack-dropdown-close" id="btnCloseStackDropdown">✕</button>
+      </div>
+      <div class="stack-dropdown-list" id="stackDropdownList">
+        <!-- Rendered dynamically -->
       </div>
     </div>
-    <div class="taskbar-pill-controls">
-      <button class="pill-btn" id="btnTaskbarPillToggle" title="Play/Pause">⏸</button>
-      <button class="pill-btn" id="btnTaskbarPillAdd1m" title="+1 Min">+1m</button>
-      <button class="pill-btn" id="btnTaskbarPillRestore" title="Restore Full Window">⤢</button>
-    </div>
-  </section>
+  </div>
 
   <!-- StandBy Ambient OLED Lockscreen Display (iPhone StandBy / Nightstand Mode) -->
   <section class="standby-display" id="standbyDisplay">

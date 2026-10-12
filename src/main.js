@@ -393,8 +393,8 @@ function toggleTaskbarBar(enable) {
     const workArea = primaryDisplay.workArea;
 
     // Windows 11 default taskbar is 48px at the bottom
-    const taskbarWidth = 240;
-    const taskbarHeight = 40;
+    const taskbarWidth = 280;
+    const taskbarHeight = 46;
     
     // Position to the right (near system tray) or center
     const xPos = Math.max(0, width - taskbarWidth - 210);
@@ -409,12 +409,15 @@ function toggleTaskbarBar(enable) {
   } else {
     currentMode = 'standard';
     mainWindow.setAlwaysOnTop(false);
-    mainWindow.setMinimumSize(200, 38);
+    mainWindow.setMinimumSize(320, 180);
     if (previousBounds) {
       mainWindow.setBounds(previousBounds, true);
     } else {
       mainWindow.setSize(440, 760, true);
+      mainWindow.center();
     }
+    mainWindow.show();
+    mainWindow.focus();
   }
   return currentMode;
 }
@@ -444,6 +447,27 @@ function toggleStandbyMode(enable) {
 
 ipcMain.handle('window:toggle-mini', (_event, enable) => toggleMiniMode(enable));
 ipcMain.handle('window:toggle-taskbar-bar', (_event, enable) => toggleTaskbarBar(enable));
+ipcMain.handle('window:expand-taskbar-stack', (_event, expand) => {
+  if (!mainWindow || currentMode !== 'taskbar') return false;
+  const bounds = mainWindow.getBounds();
+  const deltaH = 140;
+  if (expand) {
+    mainWindow.setBounds({
+      x: bounds.x,
+      y: Math.max(0, bounds.y - deltaH),
+      width: bounds.width,
+      height: bounds.height + deltaH
+    }, true);
+  } else {
+    mainWindow.setBounds({
+      x: bounds.x,
+      y: bounds.y + deltaH,
+      width: bounds.width,
+      height: bounds.height - deltaH
+    }, true);
+  }
+  return true;
+});
 ipcMain.handle('window:toggle-standby', (_event, enable) => toggleStandbyMode(enable));
 ipcMain.handle('window:toggle-always-on-top', (_event, enable) => {
   if (mainWindow) {
