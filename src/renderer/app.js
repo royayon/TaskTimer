@@ -170,6 +170,11 @@ class TaskTimerApp {
       editTimerModal: document.getElementById('editTimerModal'),
       btnCloseEditModal: document.getElementById('btnCloseEditModal'),
       inputEditTimerLabel: document.getElementById('inputEditTimerLabel'),
+      inputEditHours: document.getElementById('inputEditHours'),
+      inputEditMinutes: document.getElementById('inputEditMinutes'),
+      inputEditSeconds: document.getElementById('inputEditSeconds'),
+      editDurationNotice: document.getElementById('editDurationNotice'),
+      editPickerContainer: document.getElementById('editPickerContainer'),
       selectEditSound: document.getElementById('selectEditSound'),
       btnSaveEditTimer: document.getElementById('btnSaveEditTimer'),
 
@@ -443,6 +448,20 @@ class TaskTimerApp {
         window.soundEngine.playTone(this.editingSound);
       });
     }
+
+    // Edit Duration Inputs Auto-Formatting
+    ['inputEditHours', 'inputEditMinutes', 'inputEditSeconds'].forEach(id => {
+      const el = this.dom[id];
+      if (el) {
+        el.addEventListener('blur', () => {
+          let val = parseInt(el.value, 10);
+          if (isNaN(val) || val < 0) val = 0;
+          const max = id === 'inputEditHours' ? 23 : 59;
+          if (val > max) val = max;
+          el.value = val.toString().padStart(2, '0');
+        });
+      }
+    });
 
     // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
@@ -923,6 +942,40 @@ class TaskTimerApp {
     this.editingIcon = timer.category || '⏱️';
     this.editingSound = timer.sound || 'radar';
 
+    const isNonActive = timer.status !== 'running';
+    const total = timer.total || 0;
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+
+    if (this.dom.inputEditHours) {
+      this.dom.inputEditHours.value = h.toString().padStart(2, '0');
+      this.dom.inputEditHours.disabled = !isNonActive;
+    }
+    if (this.dom.inputEditMinutes) {
+      this.dom.inputEditMinutes.value = m.toString().padStart(2, '0');
+      this.dom.inputEditMinutes.disabled = !isNonActive;
+    }
+    if (this.dom.inputEditSeconds) {
+      this.dom.inputEditSeconds.value = s.toString().padStart(2, '0');
+      this.dom.inputEditSeconds.disabled = !isNonActive;
+    }
+
+    if (this.dom.editPickerContainer) {
+      this.dom.editPickerContainer.style.opacity = isNonActive ? '1' : '0.5';
+      this.dom.editPickerContainer.style.pointerEvents = isNonActive ? 'auto' : 'none';
+    }
+
+    if (this.dom.editDurationNotice) {
+      if (isNonActive) {
+        this.dom.editDurationNotice.textContent = timer.status === 'paused' ? '(Paused - editable)' : '(Editable)';
+        this.dom.editDurationNotice.style.color = 'var(--text-secondary)';
+      } else {
+        this.dom.editDurationNotice.textContent = '(Running - pause to change time)';
+        this.dom.editDurationNotice.style.color = '#ff9f0a';
+      }
+    }
+
     if (this.dom.inputEditTimerLabel) {
       this.dom.inputEditTimerLabel.value = timer.label;
     }
@@ -960,6 +1013,22 @@ class TaskTimerApp {
   saveEditedTimer() {
     const timer = this.timers.find(t => t.id === this.editingTimerId);
     if (!timer) return;
+
+    // If timer is non-active, update its duration
+    if (timer.status !== 'running') {
+      const h = parseInt(this.dom.inputEditHours ? this.dom.inputEditHours.value : '0', 10) || 0;
+      const m = parseInt(this.dom.inputEditMinutes ? this.dom.inputEditMinutes.value : '0', 10) || 0;
+      const s = parseInt(this.dom.inputEditSeconds ? this.dom.inputEditSeconds.value : '0', 10) || 0;
+      const newTotal = (h * 3600) + (m * 60) + s;
+      if (newTotal > 0) {
+        timer.total = newTotal;
+        timer.remaining = newTotal;
+        timer.endTimestamp = null;
+        if (timer.status === 'completed') {
+          timer.status = 'idle';
+        }
+      }
+    }
 
     const newLabel = (this.dom.inputEditTimerLabel ? this.dom.inputEditTimerLabel.value.trim() : '') || 'Timer';
     timer.label = newLabel;
@@ -1117,7 +1186,11 @@ class TaskTimerApp {
 
   renderHeroStackTabs() {
     if (!this.dom.heroStackTabs) return;
-    if (this.timers.length <= 1) {
+
+    // Only show active timers (running or paused countdown)
+    const activeTimers = this.timers.filter(t => t.status === 'running' || (t.status === 'paused' && t.remaining > 0));
+
+    if (activeTimers.length === 0) {
       this.dom.heroStackTabs.style.display = 'none';
       return;
     }
@@ -1125,15 +1198,15 @@ class TaskTimerApp {
 
     // In-place update to prevent DOM destruction during active countdown
     const existingChips = this.dom.heroStackTabs.querySelectorAll('.hero-stack-chip');
-    if (existingChips.length === this.timers.length) {
+    if (existingChips.length === activeTimers.length) {
       let canUpdateInPlace = true;
       existingChips.forEach((chip, idx) => {
-        if (chip.getAttribute('data-chip-id') !== this.timers[idx].id) canUpdateInPlace = false;
+        if (chip.getAttribute('data-chip-id') !== activeTimers[idx].id) canUpdateInPlace = false;
       });
 
       if (canUpdateInPlace) {
         existingChips.forEach((chip, idx) => {
-          const t = this.timers[idx];
+          const t = activeTimers[idx];
           const isActive = t.id === this.primaryTimerId;
           chip.className = `hero-stack-chip ${isActive ? 'active' : ''}`;
           if (isActive) {
@@ -1151,7 +1224,7 @@ class TaskTimerApp {
     }
 
     this.dom.heroStackTabs.innerHTML = '';
-    this.timers.forEach(t => {
+    activeTimers.forEach(t => {
       const chip = document.createElement('div');
       const isActive = t.id === this.primaryTimerId;
       chip.className = `hero-stack-chip ${isActive ? 'active' : ''}`;
