@@ -16,6 +16,8 @@ class TaskTimerApp {
     this.editingIcon = '⏱️';
     this.editingSound = 'radar';
     this.tickInterval = null;
+    this.createTimerMode = 'duration'; // 'duration' | 'target'
+    this.editTimerMode = 'duration';   // 'duration' | 'target'
 
     // Performance & Frame Scheduling State
     this._renderScheduled = false;
@@ -173,10 +175,18 @@ class TaskTimerApp {
       timersListContainer: document.getElementById('timersListContainer'),
 
       // Add Modal & Footer Actions
+      chipOpenTargetTimer: document.getElementById('chipOpenTargetTimer'),
       btnDockTaskbarBottom: document.getElementById('btnDockTaskbarBottom'),
       btnOpenAddModal: document.getElementById('btnOpenAddModal'),
       addTimerModal: document.getElementById('addTimerModal'),
       btnCloseAddModal: document.getElementById('btnCloseAddModal'),
+      tabCreateModeDuration: document.getElementById('tabCreateModeDuration'),
+      tabCreateModeTarget: document.getElementById('tabCreateModeTarget'),
+      createDurationSection: document.getElementById('createDurationSection'),
+      createTargetTimeSection: document.getElementById('createTargetTimeSection'),
+      inputTargetTime: document.getElementById('inputTargetTime'),
+      btnSetTargetNextHour: document.getElementById('btnSetTargetNextHour'),
+      targetTimePreviewText: document.getElementById('targetTimePreviewText'),
       inputHours: document.getElementById('inputHours'),
       inputMinutes: document.getElementById('inputMinutes'),
       inputSeconds: document.getElementById('inputSeconds'),
@@ -188,6 +198,14 @@ class TaskTimerApp {
       // Edit Modal
       editTimerModal: document.getElementById('editTimerModal'),
       btnCloseEditModal: document.getElementById('btnCloseEditModal'),
+      tabEditModeDuration: document.getElementById('tabEditModeDuration'),
+      tabEditModeTarget: document.getElementById('tabEditModeTarget'),
+      editModalModeToggle: document.getElementById('editModalModeToggle'),
+      editDurationGroup: document.getElementById('editDurationGroup'),
+      editTargetTimeSection: document.getElementById('editTargetTimeSection'),
+      inputEditTargetTime: document.getElementById('inputEditTargetTime'),
+      btnSetEditTargetNextHour: document.getElementById('btnSetEditTargetNextHour'),
+      editTargetTimePreviewText: document.getElementById('editTargetTimePreviewText'),
       inputEditTimerLabel: document.getElementById('inputEditTimerLabel'),
       inputEditHours: document.getElementById('inputEditHours'),
       inputEditMinutes: document.getElementById('inputEditMinutes'),
@@ -416,6 +434,109 @@ class TaskTimerApp {
       });
     });
 
+    // 1-Click "Till Time..." chip in presets bar
+    if (this.dom.chipOpenTargetTimer) {
+      this.dom.chipOpenTargetTimer.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.openAddModal('target');
+      });
+    }
+
+    // Modal Mode Selector Tabs (Duration vs Target Time)
+    if (this.dom.tabCreateModeDuration) {
+      this.dom.tabCreateModeDuration.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.switchCreateTimerMode('duration');
+      });
+    }
+    if (this.dom.tabCreateModeTarget) {
+      this.dom.tabCreateModeTarget.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.switchCreateTimerMode('target');
+      });
+    }
+
+    // Target Time Input Listener
+    if (this.dom.inputTargetTime) {
+      this.dom.inputTargetTime.addEventListener('input', () => {
+        this.updateTargetTimePreview();
+        const details = this.getTargetTimeDetails(this.dom.inputTargetTime.value);
+        if (details && this.dom.inputTimerLabel && (!this.dom.inputTimerLabel.value || this.dom.inputTimerLabel.value === 'Focus Work' || this.dom.inputTimerLabel.value.startsWith('Timer till'))) {
+          this.dom.inputTimerLabel.value = `Timer till ${details.target12Str}`;
+        }
+      });
+    }
+
+    if (this.dom.btnSetTargetNextHour) {
+      this.dom.btnSetTargetNextHour.addEventListener('click', () => {
+        this.setTargetTimeToNextHour();
+      });
+    }
+
+    // Quick Target Chips (+15m, +30m, etc.)
+    document.querySelectorAll('.target-preset-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const addM = chip.dataset.addM;
+        const exact = chip.dataset.exact;
+        const editAddM = chip.dataset.editAddM;
+
+        if (addM) {
+          this.setTargetTimeToOffset(parseInt(addM, 10));
+        } else if (exact && this.dom.inputTargetTime) {
+          window.soundEngine.playTick();
+          this.dom.inputTargetTime.value = exact;
+          this.updateTargetTimePreview();
+          const details = this.getTargetTimeDetails(exact);
+          if (details && this.dom.inputTimerLabel && (!this.dom.inputTimerLabel.value || this.dom.inputTimerLabel.value === 'Focus Work' || this.dom.inputTimerLabel.value.startsWith('Timer till'))) {
+            this.dom.inputTimerLabel.value = `Timer till ${details.target12Str}`;
+          }
+        } else if (editAddM) {
+          window.soundEngine.playTick();
+          const now = new Date();
+          const future = new Date(now.getTime() + parseInt(editAddM, 10) * 60000);
+          const h = future.getHours().toString().padStart(2, '0');
+          const m = future.getMinutes().toString().padStart(2, '0');
+          if (this.dom.inputEditTargetTime) {
+            this.dom.inputEditTargetTime.value = `${h}:${m}`;
+            this.updateEditTargetTimePreview();
+          }
+        }
+      });
+    });
+
+    // Edit Modal Mode Selector
+    if (this.dom.tabEditModeDuration) {
+      this.dom.tabEditModeDuration.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.switchEditTimerMode('duration');
+      });
+    }
+    if (this.dom.tabEditModeTarget) {
+      this.dom.tabEditModeTarget.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.switchEditTimerMode('target');
+      });
+    }
+
+    if (this.dom.inputEditTargetTime) {
+      this.dom.inputEditTargetTime.addEventListener('input', () => {
+        this.updateEditTargetTimePreview();
+      });
+    }
+
+    if (this.dom.btnSetEditTargetNextHour) {
+      this.dom.btnSetEditTargetNextHour.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        const now = new Date();
+        const nextH = (now.getHours() + 1) % 24;
+        const h = nextH.toString().padStart(2, '0');
+        if (this.dom.inputEditTargetTime) {
+          this.dom.inputEditTargetTime.value = `${h}:00`;
+          this.updateEditTargetTimePreview();
+        }
+      });
+    }
+
     // Open Independent Stopwatch Window
     if (this.dom.btnOpenStopwatch) {
       this.dom.btnOpenStopwatch.addEventListener('click', () => {
@@ -427,6 +548,7 @@ class TaskTimerApp {
     // Quick Presets Bar (1-Click Instant Start)
     document.querySelectorAll('.quick-preset-chip').forEach(chip => {
       chip.addEventListener('click', () => {
+        if (chip.id === 'chipOpenTargetTimer') return;
         window.soundEngine.playTick();
         const label = chip.dataset.label || 'Quick Timer';
         const s = parseInt(chip.dataset.s || '60', 10);
@@ -1069,10 +1191,142 @@ class TaskTimerApp {
   }
 
   // -------------------------------------------------------------
+  // Target Time Helper & Preview ("Timer Till 4:05 PM")
+  // -------------------------------------------------------------
+  getTargetTimeDetails(timeStr) {
+    if (!timeStr) return null;
+    const parts = timeStr.split(':');
+    if (parts.length < 2) return null;
+    const targetH = parseInt(parts[0], 10);
+    const targetM = parseInt(parts[1], 10);
+    if (isNaN(targetH) || isNaN(targetM)) return null;
+
+    const now = new Date();
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), targetH, targetM, 0, 0);
+
+    let isTomorrow = false;
+    // If target time is earlier than right now (or within 10 seconds), roll over to tomorrow!
+    if (target.getTime() <= now.getTime() + 10000) {
+      target.setDate(target.getDate() + 1);
+      isTomorrow = true;
+    }
+
+    const diffSeconds = Math.max(1, Math.round((target.getTime() - now.getTime()) / 1000));
+    const diffHours = Math.floor(diffSeconds / 3600);
+    const diffMins = Math.floor((diffSeconds % 3600) / 60);
+
+    const target12Str = target.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    let durationStr = '';
+    if (diffHours > 0) {
+      durationStr = `${diffHours}h ${diffMins}m`;
+    } else {
+      durationStr = `${Math.max(1, diffMins)}m`;
+    }
+
+    const dayStr = isTomorrow ? 'tomorrow' : 'today';
+    return {
+      targetH,
+      targetM,
+      targetDate: target,
+      totalSeconds: diffSeconds,
+      target12Str,
+      isTomorrow,
+      summaryText: `Ends ${dayStr} at ${target12Str} (runs for ${durationStr})`
+    };
+  }
+
+  updateTargetTimePreview() {
+    if (!this.dom.inputTargetTime) return;
+    const details = this.getTargetTimeDetails(this.dom.inputTargetTime.value);
+    if (details && this.dom.targetTimePreviewText) {
+      this.dom.targetTimePreviewText.textContent = details.summaryText;
+    }
+  }
+
+  updateEditTargetTimePreview() {
+    if (!this.dom.inputEditTargetTime) return;
+    const details = this.getTargetTimeDetails(this.dom.inputEditTargetTime.value);
+    if (details && this.dom.editTargetTimePreviewText) {
+      this.dom.editTargetTimePreviewText.textContent = details.summaryText;
+    }
+  }
+
+  setTargetTimeToOffset(minutes) {
+    window.soundEngine.playTick();
+    const now = new Date();
+    const future = new Date(now.getTime() + minutes * 60000);
+    const h = future.getHours().toString().padStart(2, '0');
+    const m = future.getMinutes().toString().padStart(2, '0');
+    if (this.dom.inputTargetTime) {
+      this.dom.inputTargetTime.value = `${h}:${m}`;
+      this.updateTargetTimePreview();
+    }
+    const details = this.getTargetTimeDetails(`${h}:${m}`);
+    if (details && this.dom.inputTimerLabel && (!this.dom.inputTimerLabel.value || this.dom.inputTimerLabel.value === 'Focus Work' || this.dom.inputTimerLabel.value.startsWith('Timer till'))) {
+      this.dom.inputTimerLabel.value = `Timer till ${details.target12Str}`;
+    }
+  }
+
+  setTargetTimeToNextHour() {
+    window.soundEngine.playTick();
+    const now = new Date();
+    const nextH = (now.getHours() + 1) % 24;
+    const h = nextH.toString().padStart(2, '0');
+    const m = '00';
+    if (this.dom.inputTargetTime) {
+      this.dom.inputTargetTime.value = `${h}:${m}`;
+      this.updateTargetTimePreview();
+    }
+    const details = this.getTargetTimeDetails(`${h}:${m}`);
+    if (details && this.dom.inputTimerLabel && (!this.dom.inputTimerLabel.value || this.dom.inputTimerLabel.value === 'Focus Work' || this.dom.inputTimerLabel.value.startsWith('Timer till'))) {
+      this.dom.inputTimerLabel.value = `Timer till ${details.target12Str}`;
+    }
+  }
+
+  switchCreateTimerMode(mode) {
+    this.createTimerMode = mode;
+    const isDuration = mode === 'duration';
+
+    if (this.dom.tabCreateModeDuration) this.dom.tabCreateModeDuration.classList.toggle('active', isDuration);
+    if (this.dom.tabCreateModeTarget) this.dom.tabCreateModeTarget.classList.toggle('active', !isDuration);
+
+    if (this.dom.createDurationSection) this.dom.createDurationSection.style.display = isDuration ? 'block' : 'none';
+    if (this.dom.createTargetTimeSection) this.dom.createTargetTimeSection.style.display = isDuration ? 'none' : 'flex';
+
+    if (!isDuration) {
+      if (this.dom.inputTargetTime && !this.dom.inputTargetTime.value) {
+        this.setTargetTimeToOffset(30);
+      } else {
+        this.updateTargetTimePreview();
+      }
+      const details = this.getTargetTimeDetails(this.dom.inputTargetTime.value);
+      if (details && this.dom.inputTimerLabel && (!this.dom.inputTimerLabel.value || this.dom.inputTimerLabel.value === 'Focus Work')) {
+        this.dom.inputTimerLabel.value = `Timer till ${details.target12Str}`;
+      }
+    }
+  }
+
+  switchEditTimerMode(mode) {
+    this.editTimerMode = mode;
+    const isDuration = mode === 'duration';
+
+    if (this.dom.tabEditModeDuration) this.dom.tabEditModeDuration.classList.toggle('active', isDuration);
+    if (this.dom.tabEditModeTarget) this.dom.tabEditModeTarget.classList.toggle('active', !isDuration);
+
+    if (this.dom.editDurationGroup) this.dom.editDurationGroup.style.display = isDuration ? 'block' : 'none';
+    if (this.dom.editTargetTimeSection) this.dom.editTargetTimeSection.style.display = isDuration ? 'none' : 'flex';
+
+    if (!isDuration) {
+      this.updateEditTargetTimePreview();
+    }
+  }
+
+  // -------------------------------------------------------------
   // Add Timer Modal
   // -------------------------------------------------------------
-  openAddModal() {
+  openAddModal(mode = 'duration') {
     this.dom.addTimerModal.classList.add('open');
+    this.switchCreateTimerMode(mode);
     if (this.dom.inputPomoCycle) this.dom.inputPomoCycle.checked = false;
     const customName = localStorage.getItem('task_timer_custom_sound_name');
     if (this.dom.customSoundLabel) {
@@ -1081,7 +1335,11 @@ class TaskTimerApp {
     if (this.dom.customSoundRow) {
       this.dom.customSoundRow.style.display = this.selectedSound === 'custom' ? 'flex' : 'none';
     }
-    this.dom.inputTimerLabel.focus();
+    if (mode === 'target' && this.dom.inputTargetTime) {
+      this.dom.inputTargetTime.focus();
+    } else {
+      this.dom.inputTimerLabel.focus();
+    }
   }
 
   closeAddModal() {
@@ -1089,17 +1347,32 @@ class TaskTimerApp {
   }
 
   handleCreateTimer() {
-    const h = parseInt(this.dom.inputHours.value || 0, 10);
-    const m = parseInt(this.dom.inputMinutes.value || 0, 10);
-    const s = parseInt(this.dom.inputSeconds.value || 0, 10);
+    let totalSeconds = 0;
+    let label = '';
+    let targetTimeStr = '';
 
-    const totalSeconds = (h * 3600) + (m * 60) + s;
-    if (totalSeconds <= 0) {
-      alert('Please enter a duration greater than 0 seconds.');
-      return;
+    if (this.createTimerMode === 'target') {
+      const details = this.getTargetTimeDetails(this.dom.inputTargetTime ? this.dom.inputTargetTime.value : '');
+      if (!details || details.totalSeconds <= 0) {
+        alert('Please choose a valid target time in the future.');
+        return;
+      }
+      totalSeconds = details.totalSeconds;
+      targetTimeStr = details.target12Str;
+      const userLabel = this.dom.inputTimerLabel.value.trim();
+      label = userLabel && userLabel !== 'Focus Work' ? userLabel : `Timer till ${details.target12Str}`;
+    } else {
+      const h = parseInt(this.dom.inputHours.value || 0, 10);
+      const m = parseInt(this.dom.inputMinutes.value || 0, 10);
+      const s = parseInt(this.dom.inputSeconds.value || 0, 10);
+      totalSeconds = (h * 3600) + (m * 60) + s;
+      if (totalSeconds <= 0) {
+        alert('Please enter a duration greater than 0 seconds.');
+        return;
+      }
+      label = this.dom.inputTimerLabel.value.trim() || 'Timer';
     }
 
-    const label = this.dom.inputTimerLabel.value.trim() || 'Timer';
     const categoryIcons = ['⏱️', '🎯', '🍵', '⚡', '☕', '🔥', '📚'];
     const randomIcon = categoryIcons[Math.floor(Math.random() * categoryIcons.length)];
     const isPomo = this.dom.inputPomoCycle ? this.dom.inputPomoCycle.checked : false;
@@ -1107,11 +1380,12 @@ class TaskTimerApp {
     const newTimer = {
       id: 'timer-' + Date.now(),
       label: label,
-      category: isPomo ? '🎯' : randomIcon,
+      category: this.createTimerMode === 'target' ? '🎯' : (isPomo ? '🎯' : randomIcon),
       total: totalSeconds,
       remaining: totalSeconds,
       status: 'running',
       endTimestamp: Date.now() + (totalSeconds * 1000),
+      targetTimeStr: targetTimeStr || undefined,
       color: this.selectedColor,
       sound: this.selectedSound,
       isPomodoro: isPomo,
@@ -1147,6 +1421,11 @@ class TaskTimerApp {
     const h = Math.floor(total / 3600);
     const m = Math.floor((total % 3600) / 60);
     const s = total % 60;
+
+    if (this.dom.editModalModeToggle) {
+      this.dom.editModalModeToggle.style.display = isNonActive ? 'flex' : 'none';
+    }
+    this.switchEditTimerMode('duration');
 
     if (this.dom.inputEditHours) {
       this.dom.inputEditHours.value = h.toString().padStart(2, '0');
@@ -1226,18 +1505,32 @@ class TaskTimerApp {
     const timer = this.timers.find(t => t.id === this.editingTimerId);
     if (!timer) return;
 
-    // If timer is non-active, update its duration
+    // If timer is non-active, update its duration or target time
     if (timer.status !== 'running') {
-      const h = parseInt(this.dom.inputEditHours ? this.dom.inputEditHours.value : '0', 10) || 0;
-      const m = parseInt(this.dom.inputEditMinutes ? this.dom.inputEditMinutes.value : '0', 10) || 0;
-      const s = parseInt(this.dom.inputEditSeconds ? this.dom.inputEditSeconds.value : '0', 10) || 0;
-      const newTotal = (h * 3600) + (m * 60) + s;
-      if (newTotal > 0) {
-        timer.total = newTotal;
-        timer.remaining = newTotal;
-        timer.endTimestamp = null;
-        if (timer.status === 'completed') {
-          timer.status = 'idle';
+      if (this.editTimerMode === 'target') {
+        const details = this.getTargetTimeDetails(this.dom.inputEditTargetTime ? this.dom.inputEditTargetTime.value : '');
+        if (details && details.totalSeconds > 0) {
+          timer.total = details.totalSeconds;
+          timer.remaining = details.totalSeconds;
+          timer.targetTimeStr = details.target12Str;
+          timer.endTimestamp = null;
+          if (timer.status === 'completed') {
+            timer.status = 'idle';
+          }
+        }
+      } else {
+        const h = parseInt(this.dom.inputEditHours ? this.dom.inputEditHours.value : '0', 10) || 0;
+        const m = parseInt(this.dom.inputEditMinutes ? this.dom.inputEditMinutes.value : '0', 10) || 0;
+        const s = parseInt(this.dom.inputEditSeconds ? this.dom.inputEditSeconds.value : '0', 10) || 0;
+        const newTotal = (h * 3600) + (m * 60) + s;
+        if (newTotal > 0) {
+          timer.total = newTotal;
+          timer.remaining = newTotal;
+          timer.targetTimeStr = undefined;
+          timer.endTimestamp = null;
+          if (timer.status === 'completed') {
+            timer.status = 'idle';
+          }
         }
       }
     }

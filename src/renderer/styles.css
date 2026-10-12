@@ -1909,4 +1909,150 @@ body.taskbar-mode .taskbar-pill-wrapper {
   background: rgba(255, 159, 10, 0.35);
 }
 
+/* -------------------------------------------------------------
+   Modal Mode Segmented Toggle: Duration vs Till Specific Time
+   ------------------------------------------------------------- */
+.modal-mode-toggle {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 4px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 4px;
+}
+
+.modal-mode-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-mode-tab:hover {
+  color: #ffffff;
+}
+
+.modal-mode-tab.active {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* -------------------------------------------------------------
+   Target Time ("Timer Till...") Section Styling
+   ------------------------------------------------------------- */
+.target-time-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.target-time-picker-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.target-time-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.target-time-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: #ffffff;
+  font-size: 26px;
+  font-weight: 600;
+  padding: 10px 16px;
+  outline: none;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  color-scheme: dark;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.target-time-input:focus {
+  border-color: var(--ios-orange);
+  box-shadow: 0 0 0 2px rgba(255, 159, 10, 0.2);
+}
+
+.btn-time-now {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--surface-border);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  padding: 0 14px;
+  height: 52px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.btn-time-now:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.target-time-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 159, 10, 0.12);
+  border: 1px solid rgba(255, 159, 10, 0.35);
+  padding: 10px 14px;
+  border-radius: 14px;
+}
+
+.target-time-preview .preview-icon {
+  font-size: 15px;
+}
+
+.target-time-preview .preview-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #ffd60a;
+  letter-spacing: -0.1px;
+}
+
+.target-preset-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 6px 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.target-preset-chip:hover {
+  background: rgba(255, 159, 10, 0.2);
+  border-color: var(--ios-orange);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.target-preset-chip:active {
+  transform: scale(0.95);
+}
+
 

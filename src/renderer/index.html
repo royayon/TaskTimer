@@ -89,6 +89,7 @@
   <!-- Quick Presets Bar (1-Click Start) -->
   <section class="quick-presets-section" id="quickPresetsSection">
     <div class="quick-presets-scroll">
+      <button class="quick-preset-chip" id="chipOpenTargetTimer" style="background: rgba(255, 159, 10, 0.18); border-color: rgba(255, 159, 10, 0.45); color: #ffd60a; font-weight: 700;">🎯 Till Time...</button>
       <button class="quick-preset-chip" data-label="Quick 1m" data-s="60" data-cat="⚡" data-color="#ffd60a">⚡ 1m</button>
       <button class="quick-preset-chip" data-label="Tea Steeping" data-s="180" data-cat="🍵" data-color="#30d158">🍵 3m Tea</button>
       <button class="quick-preset-chip" data-label="Screen Break" data-s="300" data-cat="👀" data-color="#64d2ff">👀 5m Rest</button>
@@ -192,36 +193,81 @@
         <button class="btn-close-modal" id="btnCloseAddModal">✕</button>
       </div>
 
-      <!-- Quick Presets -->
-      <div class="presets-group">
-        <span class="presets-title">Quick Presets</span>
-        <div class="presets-chips">
-          <button class="preset-chip" data-h="0" data-m="1" data-s="0" data-label="Quick Minute">1 min</button>
-          <button class="preset-chip" data-h="0" data-m="3" data-s="0" data-label="Green Tea">3 min Tea</button>
-          <button class="preset-chip" data-h="0" data-m="5" data-s="0" data-label="Quick Break">5 min</button>
-          <button class="preset-chip" data-h="0" data-m="10" data-s="0" data-label="Short Stretch">10 min</button>
-          <button class="preset-chip" data-h="0" data-m="15" data-s="0" data-label="Quick Task">15 min</button>
-          <button class="preset-chip" data-h="0" data-m="25" data-s="0" data-label="Pomodoro Focus">25 min Focus</button>
-          <button class="preset-chip" data-h="0" data-m="45" data-s="0" data-label="Deep Work">45 min</button>
-          <button class="preset-chip" data-h="1" data-m="0" data-s="0" data-label="1-Hour Session">1 Hour</button>
+      <!-- Mode Selector: Duration vs Till Specific Time -->
+      <div class="modal-mode-toggle">
+        <button type="button" class="modal-mode-tab active" id="tabCreateModeDuration">
+          <span>⏳ Duration</span>
+        </button>
+        <button type="button" class="modal-mode-tab" id="tabCreateModeTarget">
+          <span>🎯 Till Specific Time</span>
+        </button>
+      </div>
+
+      <!-- Mode 1: Duration Picker & Presets -->
+      <div id="createDurationSection">
+        <!-- Quick Presets -->
+        <div class="presets-group">
+          <span class="presets-title">Quick Presets</span>
+          <div class="presets-chips">
+            <button class="preset-chip" data-h="0" data-m="1" data-s="0" data-label="Quick Minute">1 min</button>
+            <button class="preset-chip" data-h="0" data-m="3" data-s="0" data-label="Green Tea">3 min Tea</button>
+            <button class="preset-chip" data-h="0" data-m="5" data-s="0" data-label="Quick Break">5 min</button>
+            <button class="preset-chip" data-h="0" data-m="10" data-s="0" data-label="Short Stretch">10 min</button>
+            <button class="preset-chip" data-h="0" data-m="15" data-s="0" data-label="Quick Task">15 min</button>
+            <button class="preset-chip" data-h="0" data-m="25" data-s="0" data-label="Pomodoro Focus">25 min Focus</button>
+            <button class="preset-chip" data-h="0" data-m="45" data-s="0" data-label="Deep Work">45 min</button>
+            <button class="preset-chip" data-h="1" data-m="0" data-s="0" data-label="1-Hour Session">1 Hour</button>
+          </div>
+        </div>
+
+        <!-- iOS Time Picker Wheel / Steppers -->
+        <div class="picker-container" style="margin-top: 10px;">
+          <div class="picker-col">
+            <input type="number" id="inputHours" class="picker-input" min="0" max="23" value="00">
+            <span class="picker-label">Hours</span>
+          </div>
+          <span class="picker-separator">:</span>
+          <div class="picker-col">
+            <input type="number" id="inputMinutes" class="picker-input" min="0" max="59" value="25">
+            <span class="picker-label">Mins</span>
+          </div>
+          <span class="picker-separator">:</span>
+          <div class="picker-col">
+            <input type="number" id="inputSeconds" class="picker-input" min="0" max="59" value="00">
+            <span class="picker-label">Secs</span>
+          </div>
         </div>
       </div>
 
-      <!-- iOS Time Picker Wheel / Steppers -->
-      <div class="picker-container">
-        <div class="picker-col">
-          <input type="number" id="inputHours" class="picker-input" min="0" max="23" value="00">
-          <span class="picker-label">Hours</span>
+      <!-- Mode 2: Target Clock Time ("Timer Till 4:05 PM") -->
+      <div class="target-time-section" id="createTargetTimeSection" style="display: none;">
+        <div class="target-time-picker-wrapper">
+          <label class="presets-title" for="inputTargetTime">Timer Till (Target Clock Time)</label>
+          <div class="target-time-input-row">
+            <input type="time" id="inputTargetTime" class="target-time-input" value="16:05">
+            <button type="button" class="btn-time-now" id="btnSetTargetNextHour" title="Set to Next Full Hour">Top of Hour</button>
+          </div>
         </div>
-        <span class="picker-separator">:</span>
-        <div class="picker-col">
-          <input type="number" id="inputMinutes" class="picker-input" min="0" max="59" value="25">
-          <span class="picker-label">Mins</span>
+
+        <!-- Dynamic Duration Preview Banner -->
+        <div class="target-time-preview" id="targetTimePreview">
+          <span class="preview-icon">✨</span>
+          <span class="preview-text" id="targetTimePreviewText">Ends today at 4:05 PM</span>
         </div>
-        <span class="picker-separator">:</span>
-        <div class="picker-col">
-          <input type="number" id="inputSeconds" class="picker-input" min="0" max="59" value="00">
-          <span class="picker-label">Secs</span>
+
+        <!-- Quick Target Presets -->
+        <div class="presets-group">
+          <span class="presets-title">Quick Target Options</span>
+          <div class="presets-chips">
+            <button type="button" class="target-preset-chip" data-add-m="15">+15 mins</button>
+            <button type="button" class="target-preset-chip" data-add-m="30">+30 mins</button>
+            <button type="button" class="target-preset-chip" data-add-m="45">+45 mins</button>
+            <button type="button" class="target-preset-chip" data-add-m="60">+1 Hour</button>
+            <button type="button" class="target-preset-chip" data-add-m="90">+1.5 Hours</button>
+            <button type="button" class="target-preset-chip" data-exact="12:00">12:00 PM</button>
+            <button type="button" class="target-preset-chip" data-exact="17:00">5:00 PM</button>
+            <button type="button" class="target-preset-chip" data-exact="21:00">9:00 PM</button>
+          </div>
         </div>
       </div>
 
@@ -288,6 +334,31 @@
       <div class="modal-header">
         <h3>Edit Timer</h3>
         <button class="btn-close-modal" id="btnCloseEditModal">✕</button>
+      </div>
+
+      <!-- Edit Mode Toggle: Duration vs Till Specific Time (when editable) -->
+      <div class="modal-mode-toggle" id="editModalModeToggle">
+        <button type="button" class="modal-mode-tab active" id="tabEditModeDuration">
+          <span>⏳ Duration</span>
+        </button>
+        <button type="button" class="modal-mode-tab" id="tabEditModeTarget">
+          <span>🎯 Till Specific Time</span>
+        </button>
+      </div>
+
+      <!-- Edit Target Time Container -->
+      <div class="target-time-section" id="editTargetTimeSection" style="display: none;">
+        <div class="target-time-picker-wrapper">
+          <label class="presets-title" for="inputEditTargetTime">New Target Clock Time</label>
+          <div class="target-time-input-row">
+            <input type="time" id="inputEditTargetTime" class="target-time-input" value="16:05">
+            <button type="button" class="btn-time-now" id="btnSetEditTargetNextHour">Top of Hour</button>
+          </div>
+        </div>
+        <div class="target-time-preview" id="editTargetTimePreview">
+          <span class="preview-icon">✨</span>
+          <span class="preview-text" id="editTargetTimePreviewText">Ends today at 4:05 PM</span>
+        </div>
       </div>
 
       <!-- Duration Wheel Picker (editable if non-active) -->
