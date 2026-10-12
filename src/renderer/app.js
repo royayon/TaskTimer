@@ -899,6 +899,18 @@ class TaskTimerApp {
     });
   }
 
+  formatTime(seconds) {
+    if (seconds === undefined || seconds === null || isNaN(seconds)) return '00:00';
+    const sec = Math.max(0, Math.floor(seconds));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) {
+      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+
   renderHeroStackTabs() {
     if (!this.dom.heroStackTabs) return;
     if (this.timers.length <= 1) {
@@ -906,11 +918,31 @@ class TaskTimerApp {
       return;
     }
     this.dom.heroStackTabs.style.display = 'flex';
-    this.dom.heroStackTabs.innerHTML = '';
 
+    // In-place update to prevent DOM destruction during active countdown
+    const existingChips = this.dom.heroStackTabs.querySelectorAll('.hero-stack-chip');
+    if (existingChips.length === this.timers.length) {
+      let canUpdateInPlace = true;
+      existingChips.forEach((chip, idx) => {
+        if (chip.getAttribute('data-chip-id') !== this.timers[idx].id) canUpdateInPlace = false;
+      });
+
+      if (canUpdateInPlace) {
+        existingChips.forEach((chip, idx) => {
+          const t = this.timers[idx];
+          chip.className = `hero-stack-chip ${t.id === this.primaryTimerId ? 'active' : ''}`;
+          const timeSpan = chip.querySelector('.hero-stack-chip-time');
+          if (timeSpan) timeSpan.textContent = this.formatTime(t.remaining);
+        });
+        return;
+      }
+    }
+
+    this.dom.heroStackTabs.innerHTML = '';
     this.timers.forEach(t => {
       const chip = document.createElement('div');
       chip.className = `hero-stack-chip ${t.id === this.primaryTimerId ? 'active' : ''}`;
+      chip.setAttribute('data-chip-id', t.id);
       chip.innerHTML = `
         <span>${t.category || '⏱️'}</span>
         <span>${t.label}</span>
@@ -1071,7 +1103,7 @@ class TaskTimerApp {
   }
 
   renderTimersList() {
-    this.dom.timersListContainer.innerHTML = '';
+    if (!this.dom.timersListContainer) return;
 
     if (this.timers.length === 0) {
       this.dom.timersListContainer.innerHTML = `
@@ -1084,6 +1116,46 @@ class TaskTimerApp {
 
     const miniCircumference = 2 * Math.PI * 18; // radius 18
 
+    // In-place update to prevent DOM destruction during active countdown
+    const existingCards = this.dom.timersListContainer.querySelectorAll('.timer-card');
+    if (existingCards.length === this.timers.length) {
+      let canUpdateInPlace = true;
+      existingCards.forEach((card, idx) => {
+        if (card.getAttribute('data-timer-id') !== this.timers[idx].id) canUpdateInPlace = false;
+      });
+
+      if (canUpdateInPlace) {
+        existingCards.forEach((card, idx) => {
+          const timer = this.timers[idx];
+          const isPrimary = timer.id === this.primaryTimerId;
+          card.className = `timer-card ${isPrimary ? 'active-primary' : ''}`;
+
+          const timeEl = card.querySelector('.timer-remaining');
+          if (timeEl) timeEl.textContent = this.formatTime(timer.remaining);
+
+          const statusEl = card.querySelector('.timer-status-text');
+          if (statusEl) statusEl.textContent = timer.status.toUpperCase();
+
+          const progressCircle = card.querySelector('.mini-ring-progress');
+          if (progressCircle) {
+            const frac = Math.max(0, Math.min(1, timer.remaining / (timer.total || 1)));
+            progressCircle.style.strokeDashoffset = miniCircumference * (1 - frac);
+          }
+
+          const toggleBtn = card.querySelector('[data-action="toggle"]');
+          if (toggleBtn) {
+            toggleBtn.title = timer.status === 'running' ? 'Pause' : 'Start';
+            toggleBtn.innerHTML = timer.status === 'running'
+              ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
+              : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+          }
+        });
+        return;
+      }
+    }
+
+    this.dom.timersListContainer.innerHTML = '';
+
     this.timers.forEach(timer => {
       const isPrimary = timer.id === this.primaryTimerId;
       const progressFraction = Math.max(0, Math.min(1, timer.remaining / (timer.total || 1)));
@@ -1091,6 +1163,7 @@ class TaskTimerApp {
 
       const card = document.createElement('div');
       card.className = `timer-card ${isPrimary ? 'active-primary' : ''}`;
+      card.setAttribute('data-timer-id', timer.id);
 
       card.innerHTML = `
         <div class="timer-card-left" data-id="${timer.id}">
@@ -1111,7 +1184,7 @@ class TaskTimerApp {
                 ${this.formatTime(timer.remaining)}
               </span>
               <span>•</span>
-              <span>${timer.status.toUpperCase()}</span>
+              <span class="timer-status-text">${timer.status.toUpperCase()}</span>
             </div>
           </div>
         </div>
@@ -1136,10 +1209,12 @@ class TaskTimerApp {
       `;
 
       // Select timer as primary on card click
-      card.querySelector('.timer-card-left').addEventListener('click', () => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.timer-card-actions')) return;
         window.soundEngine.playTick();
         this.primaryTimerId = timer.id;
         this.render();
+        this.syncWithOsTaskbar();
       });
 
       // Actions

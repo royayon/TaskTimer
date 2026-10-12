@@ -1,6 +1,6 @@
 {
   "name": "tasktimer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Cross-platform iPhone-inspired multi-timer with Windows taskbar & macOS menu bar/dock integration, mini-window, and lockscreen persistence",
   "main": "src/main.js",
   "scripts": {
