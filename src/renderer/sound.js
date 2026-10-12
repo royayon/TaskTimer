@@ -55,6 +55,18 @@ class SoundEngine {
       case 'beacon':
         this.playBeacon();
         break;
+      case 'silk':
+        this.playSilk();
+        break;
+      case 'cosmic':
+        this.playCosmic();
+        break;
+      case 'marimba':
+        this.playMarimba();
+        break;
+      case 'custom':
+        this.playCustomSound();
+        break;
       case 'bell':
       default:
         this.playZenBell();
@@ -179,9 +191,103 @@ class SoundEngine {
     osc.stop(t0 + 1.5);
   }
 
+  // Apple "Silk" (Soft ambient warm chord)
+  playSilk() {
+    const t0 = this.audioCtx.currentTime;
+    const freqs = [440, 554.37, 659.25, 880]; // A4 major chord
+    freqs.forEach((f, i) => {
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, t0 + i * 0.04);
+      gain.gain.setValueAtTime(0.001, t0 + i * 0.04);
+      gain.gain.linearRampToValueAtTime(0.2, t0 + i * 0.04 + 0.06);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6);
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+      osc.start(t0 + i * 0.04);
+      osc.stop(t0 + 1.65);
+    });
+  }
+
+  // Apple "Cosmic" (Ethereal shimmering harmonics)
+  playCosmic() {
+    const t0 = this.audioCtx.currentTime;
+    const notes = [1046.50, 1318.51, 1567.98, 2093.00]; // C6, E6, G6, C7
+    notes.forEach((freq, idx) => {
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t0 + idx * 0.08);
+      gain.gain.setValueAtTime(0.001, t0 + idx * 0.08);
+      gain.gain.linearRampToValueAtTime(0.18, t0 + idx * 0.08 + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.4);
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+      osc.start(t0 + idx * 0.08);
+      osc.stop(t0 + 1.45);
+    });
+  }
+
+  // Apple "Marimba" (Wooden melodic acoustic bounce)
+  playMarimba() {
+    const t0 = this.audioCtx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.50, 783.99];
+    notes.forEach((freq, i) => {
+      const start = t0 + i * 0.09;
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.3, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+      osc.start(start);
+      osc.stop(start + 0.38);
+    });
+  }
+
+  // Custom User Audio File Playback
+  playCustomSound() {
+    try {
+      const customData = localStorage.getItem('task_timer_custom_sound');
+      if (customData) {
+        if (!this.customAudio) {
+          this.customAudio = new Audio();
+        }
+        this.customAudio.src = customData;
+        this.customAudio.currentTime = 0;
+        this.customAudio.play().catch(e => {
+          console.warn('Custom audio playback failed, falling back to radar:', e);
+          this.playRadar();
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn('Error reading custom audio:', e);
+    }
+    this.playRadar();
+  }
+
   // Start continuous alarm ringing when timer expires
   startRinging(toneName = 'radar') {
     this.stopRinging();
+    if (toneName === 'custom') {
+      try {
+        const customData = localStorage.getItem('task_timer_custom_sound');
+        if (customData) {
+          if (!this.customAudio) this.customAudio = new Audio();
+          this.customAudio.src = customData;
+          this.customAudio.loop = true;
+          this.customAudio.currentTime = 0;
+          this.customAudio.play().catch(() => this.playRadar());
+          return;
+        }
+      } catch (e) {}
+    }
+
     this.playTone(toneName);
     this.activeRingerInterval = setInterval(() => {
       this.playTone(toneName);
@@ -189,6 +295,13 @@ class SoundEngine {
   }
 
   stopRinging() {
+    if (this.customAudio) {
+      try {
+        this.customAudio.pause();
+        this.customAudio.currentTime = 0;
+        this.customAudio.loop = false;
+      } catch (e) {}
+    }
     if (this.activeRingerInterval) {
       clearInterval(this.activeRingerInterval);
       this.activeRingerInterval = null;

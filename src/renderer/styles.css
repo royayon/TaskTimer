@@ -1613,4 +1613,342 @@ body.taskbar-mode .taskbar-pill-wrapper {
   color: var(--ios-orange);
 }
 
+/* -------------------------------------------------------------
+   Segmented Mode Switcher: Timers vs Stopwatch
+   ------------------------------------------------------------- */
+.mode-switcher-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 6px 16px 2px 16px;
+  background: rgba(28, 28, 35, 0.7);
+  padding: 3px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  z-index: 40;
+}
+
+.mode-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 16px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mode-tab:hover {
+  color: #ffffff;
+}
+
+.mode-tab.active {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* -------------------------------------------------------------
+   Quick Presets Bar (1-Click Instant Start)
+   ------------------------------------------------------------- */
+.quick-presets-section {
+  padding: 0 16px;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.quick-presets-scroll {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 6px 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.quick-presets-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.quick-preset-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 5px 11px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(12px);
+}
+
+.quick-preset-chip:hover {
+  background: rgba(255, 159, 10, 0.18);
+  border-color: var(--ios-orange);
+  transform: translateY(-1px);
+}
+
+.quick-preset-chip:active {
+  transform: scale(0.95);
+}
+
+/* -------------------------------------------------------------
+   Pomodoro Cycle Badges & Settings
+   ------------------------------------------------------------- */
+.pomo-cycle-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ios-orange);
+  background: rgba(255, 159, 10, 0.15);
+  border: 1px solid rgba(255, 159, 10, 0.35);
+  padding: 4px 10px;
+  border-radius: 14px;
+  margin-bottom: 8px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.pomo-toggle-group {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.pomo-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pomo-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ios-orange);
+  cursor: pointer;
+}
+
+.pomo-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pomo-toggle-text strong {
+  font-size: 13px;
+  color: #ffffff;
+}
+
+.pomo-toggle-text small {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* -------------------------------------------------------------
+   Stopwatch Apple-Clock View
+   ------------------------------------------------------------- */
+.stopwatch-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.stopwatch-hero-card {
+  background: var(--surface-glass);
+  border: 1px solid var(--surface-border);
+  backdrop-filter: blur(28px);
+  border-radius: var(--radius-xl);
+  padding: 36px 18px 28px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+}
+
+.stopwatch-digits {
+  font-size: 64px;
+  font-weight: 200;
+  letter-spacing: -2px;
+  line-height: 1;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 28px;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+.stopwatch-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 240px;
+}
+
+.btn-stopwatch-secondary {
+  width: 68px;
+  height: 68px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-stopwatch-secondary:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-stopwatch-primary {
+  width: 68px;
+  height: 68px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-stopwatch-primary.start {
+  background: rgba(48, 209, 88, 0.25);
+  color: #30d158;
+  border: 1px solid rgba(48, 209, 88, 0.5);
+}
+
+.btn-stopwatch-primary.start:hover {
+  background: rgba(48, 209, 88, 0.4);
+  transform: scale(1.04);
+}
+
+.btn-stopwatch-primary.stop {
+  background: rgba(255, 69, 58, 0.25);
+  color: #ff453a;
+  border: 1px solid rgba(255, 69, 58, 0.5);
+}
+
+.btn-stopwatch-primary.stop:hover {
+  background: rgba(255, 69, 58, 0.4);
+  transform: scale(1.04);
+}
+
+.stopwatch-laps-section {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 230px;
+}
+
+.laps-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.laps-list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  gap: 2px;
+  max-height: 180px;
+}
+
+.lap-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+}
+
+.lap-item.fastest {
+  color: #30d158 !important;
+  font-weight: 600;
+}
+
+.lap-item.slowest {
+  color: #ff453a !important;
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------------
+   Custom Sound Controls
+   ------------------------------------------------------------- */
+.custom-sound-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px 10px;
+  border-radius: 12px;
+}
+
+.btn-custom-audio {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-custom-audio:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.custom-sound-label {
+  flex: 1;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-preview-audio {
+  background: rgba(255, 159, 10, 0.2);
+  border: 1px solid var(--ios-orange);
+  color: var(--ios-orange);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-preview-audio:hover {
+  background: rgba(255, 159, 10, 0.35);
+}
+
 
