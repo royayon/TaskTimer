@@ -392,6 +392,79 @@ class TaskTimerApp {
         this.toggleTimerPlay(this.primaryTimerId);
       }
     });
+
+    // Setup smooth draggable & scrollable carousel for stack tabs
+    this.setupStackTabsDraggable();
+  }
+
+  setupStackTabsDraggable() {
+    const container = this.dom.heroStackTabs;
+    if (!container) return;
+
+    let isDown = false;
+    let startX = 0;
+    let scrollLeft = 0;
+    this.isStackTabsDragging = false;
+
+    container.addEventListener('mousedown', (e) => {
+      isDown = true;
+      this.isStackTabsDragging = false;
+      container.classList.add('dragging');
+      startX = e.pageX - container.offsetLeft;
+      scrollLeft = container.scrollLeft;
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDown) {
+        isDown = false;
+        container.classList.remove('dragging');
+        setTimeout(() => {
+          this.isStackTabsDragging = false;
+        }, 60);
+      }
+    });
+
+    container.addEventListener('mousemove', (e) => {
+      if (!isDown) return;
+      const x = e.pageX - container.offsetLeft;
+      const walk = (x - startX) * 1.5;
+      if (Math.abs(walk) > 4) {
+        this.isStackTabsDragging = true;
+      }
+      container.scrollLeft = scrollLeft - walk;
+    });
+
+    // Touch support for drag scroll
+    let touchStartX = 0;
+    let touchScrollLeft = 0;
+    container.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].pageX - container.offsetLeft;
+      touchScrollLeft = container.scrollLeft;
+      this.isStackTabsDragging = false;
+    }, { passive: true });
+
+    container.addEventListener('touchmove', (e) => {
+      const x = e.touches[0].pageX - container.offsetLeft;
+      const walk = (x - touchStartX) * 1.5;
+      if (Math.abs(walk) > 4) {
+        this.isStackTabsDragging = true;
+      }
+      container.scrollLeft = touchScrollLeft - walk;
+    }, { passive: true });
+
+    container.addEventListener('touchend', () => {
+      setTimeout(() => {
+        this.isStackTabsDragging = false;
+      }, 60);
+    }, { passive: true });
+
+    // Convert mouse wheel vertically into horizontal carousel scrolling
+    container.addEventListener('wheel', (e) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        container.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
   }
 
   // -------------------------------------------------------------
@@ -930,7 +1003,15 @@ class TaskTimerApp {
       if (canUpdateInPlace) {
         existingChips.forEach((chip, idx) => {
           const t = this.timers[idx];
-          chip.className = `hero-stack-chip ${t.id === this.primaryTimerId ? 'active' : ''}`;
+          const isActive = t.id === this.primaryTimerId;
+          chip.className = `hero-stack-chip ${isActive ? 'active' : ''}`;
+          if (isActive) {
+            chip.style.borderColor = t.color || '#ff9f0a';
+            chip.style.boxShadow = `0 0 16px ${t.color || '#ff9f0a'}55, 0 4px 14px rgba(0, 0, 0, 0.4)`;
+          } else {
+            chip.style.borderColor = '';
+            chip.style.boxShadow = '';
+          }
           const timeSpan = chip.querySelector('.hero-stack-chip-time');
           if (timeSpan) timeSpan.textContent = this.formatTime(t.remaining);
         });
@@ -941,19 +1022,29 @@ class TaskTimerApp {
     this.dom.heroStackTabs.innerHTML = '';
     this.timers.forEach(t => {
       const chip = document.createElement('div');
-      chip.className = `hero-stack-chip ${t.id === this.primaryTimerId ? 'active' : ''}`;
+      const isActive = t.id === this.primaryTimerId;
+      chip.className = `hero-stack-chip ${isActive ? 'active' : ''}`;
       chip.setAttribute('data-chip-id', t.id);
+      if (isActive) {
+        chip.style.borderColor = t.color || '#ff9f0a';
+        chip.style.boxShadow = `0 0 16px ${t.color || '#ff9f0a'}55, 0 4px 14px rgba(0, 0, 0, 0.4)`;
+      }
+
       chip.innerHTML = `
         <span>${t.category || '⏱️'}</span>
         <span>${t.label}</span>
         <span class="hero-stack-chip-time" style="color: ${t.color || '#ff9f0a'};">${this.formatTime(t.remaining)}</span>
       `;
+
       chip.addEventListener('click', () => {
+        if (this.isStackTabsDragging) return;
         window.soundEngine.playTick();
         this.primaryTimerId = t.id;
         this.render();
         this.syncWithOsTaskbar();
+        chip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       });
+
       this.dom.heroStackTabs.appendChild(chip);
     });
   }
