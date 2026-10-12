@@ -149,7 +149,8 @@ class TaskTimerApp {
       allTimersCount: document.getElementById('allTimersCount'),
       timersListContainer: document.getElementById('timersListContainer'),
 
-      // Add Modal
+      // Add Modal & Footer Actions
+      btnDockTaskbarBottom: document.getElementById('btnDockTaskbarBottom'),
       btnOpenAddModal: document.getElementById('btnOpenAddModal'),
       addTimerModal: document.getElementById('addTimerModal'),
       btnCloseAddModal: document.getElementById('btnCloseAddModal'),
@@ -205,9 +206,12 @@ class TaskTimerApp {
   // Event Bindings
   // -------------------------------------------------------------
   bindEvents() {
-    // Titlebar Actions
+    // Titlebar & Navigation Actions
     if (this.dom.btnToggleTaskbar) {
       this.dom.btnToggleTaskbar.addEventListener('click', () => this.toggleTaskbarBar());
+    }
+    if (this.dom.btnDockTaskbarBottom) {
+      this.dom.btnDockTaskbarBottom.addEventListener('click', () => this.toggleTaskbarBar(true));
     }
     this.dom.btnToggleMini.addEventListener('click', () => this.toggleMiniMode());
     this.dom.btnToggleStandby.addEventListener('click', () => this.toggleStandbyMode());
