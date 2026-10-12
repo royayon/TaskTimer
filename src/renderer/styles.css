@@ -1323,7 +1323,7 @@ body.standby-mode.night-mode .lock-persist-dot {
    ------------------------------------------------------------- */
 body.taskbar-mode {
   background: transparent !important;
-  overflow: visible !important;
+  overflow: hidden !important;
   padding: 0 !important;
   margin: 0 !important;
 }
@@ -1334,6 +1334,7 @@ body.taskbar-mode::before {
 
 body.taskbar-mode .titlebar,
 body.taskbar-mode .dynamic-island-container,
+body.taskbar-mode .quick-presets-section,
 body.taskbar-mode .content-scroll,
 body.taskbar-mode .bottom-nav,
 body.taskbar-mode .modal-overlay,
@@ -1613,49 +1614,6 @@ body.taskbar-mode .taskbar-pill-wrapper {
   color: var(--ios-orange);
 }
 
-/* -------------------------------------------------------------
-   Segmented Mode Switcher: Timers vs Stopwatch
-   ------------------------------------------------------------- */
-.mode-switcher-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin: 6px 16px 2px 16px;
-  background: rgba(28, 28, 35, 0.7);
-  padding: 3px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px);
-  z-index: 40;
-}
-
-.mode-tab {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 16px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.mode-tab:hover {
-  color: #ffffff;
-}
-
-.mode-tab.active {
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-}
 
 /* -------------------------------------------------------------
    Quick Presets Bar (1-Click Instant Start)

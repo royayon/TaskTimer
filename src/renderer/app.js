@@ -17,16 +17,6 @@ class TaskTimerApp {
     this.editingSound = 'radar';
     this.tickInterval = null;
 
-    // View Modes: 'timers' | 'stopwatch'
-    this.currentViewMode = 'timers';
-    this.stopwatch = {
-      isRunning: false,
-      startTime: 0,
-      accumulatedTime: 0,
-      laps: [],
-      animFrameId: null
-    };
-
     // Performance & Frame Scheduling State
     this._renderScheduled = false;
     this._needsRender = false;
@@ -243,22 +233,15 @@ class TaskTimerApp {
       btnTaskbarPillAdd1m: document.getElementById('btnTaskbarPillAdd1m'),
       btnTaskbarPillRestore: document.getElementById('btnTaskbarPillRestore'),
 
-      // Mode Switcher & Sections
-      tabTimersMode: document.getElementById('tabTimersMode'),
-      tabStopwatchMode: document.getElementById('tabStopwatchMode'),
-      timersViewSection: document.getElementById('timersViewSection'),
+      // Stopwatch Window Launcher
+      btnOpenStopwatch: document.getElementById('btnOpenStopwatch'),
+
+      // Sections
       quickPresetsSection: document.getElementById('quickPresetsSection'),
       bottomNav: document.getElementById('bottomNav'),
 
       // Hero Pomodoro Badge
       heroPomoBadge: document.getElementById('heroPomoBadge'),
-
-      // Stopwatch elements
-      stopwatchView: document.getElementById('stopwatchView'),
-      stopwatchDigits: document.getElementById('stopwatchDigits'),
-      btnStopwatchLapReset: document.getElementById('btnStopwatchLapReset'),
-      btnStopwatchStartStop: document.getElementById('btnStopwatchStartStop'),
-      stopwatchLapsList: document.getElementById('stopwatchLapsList'),
 
       // Pomodoro modal inputs
       inputPomoCycle: document.getElementById('inputPomoCycle'),
@@ -433,17 +416,11 @@ class TaskTimerApp {
       });
     });
 
-    // Mode Switcher (Timers vs Stopwatch)
-    if (this.dom.tabTimersMode) {
-      this.dom.tabTimersMode.addEventListener('click', () => {
+    // Open Independent Stopwatch Window
+    if (this.dom.btnOpenStopwatch) {
+      this.dom.btnOpenStopwatch.addEventListener('click', () => {
         window.soundEngine.playTick();
-        this.switchViewMode('timers');
-      });
-    }
-    if (this.dom.tabStopwatchMode) {
-      this.dom.tabStopwatchMode.addEventListener('click', () => {
-        window.soundEngine.playTick();
-        this.switchViewMode('stopwatch');
+        window.timerAPI?.openStopwatchWindow();
       });
     }
 
@@ -458,14 +435,6 @@ class TaskTimerApp {
         this.quickAddTimer(label, s, color, cat);
       });
     });
-
-    // Stopwatch Controls
-    if (this.dom.btnStopwatchStartStop) {
-      this.dom.btnStopwatchStartStop.addEventListener('click', () => this.toggleStopwatch());
-    }
-    if (this.dom.btnStopwatchLapReset) {
-      this.dom.btnStopwatchLapReset.addEventListener('click', () => this.handleStopwatchLapReset());
-    }
 
     // Color Pickers
     document.querySelectorAll('.color-dot').forEach(dot => {
@@ -1944,130 +1913,7 @@ class TaskTimerApp {
     });
   }
 
-  // -------------------------------------------------------------
-  // Mode Switcher: Timers vs Stopwatch
-  // -------------------------------------------------------------
-  switchViewMode(mode) {
-    this.currentViewMode = mode;
-    const isTimers = mode === 'timers';
-    if (this.dom.tabTimersMode) this.dom.tabTimersMode.classList.toggle('active', isTimers);
-    if (this.dom.tabStopwatchMode) this.dom.tabStopwatchMode.classList.toggle('active', !isTimers);
 
-    if (this.dom.timersViewSection) this.dom.timersViewSection.style.display = isTimers ? 'block' : 'none';
-    if (this.dom.quickPresetsSection) this.dom.quickPresetsSection.style.display = isTimers ? 'block' : 'none';
-    if (this.dom.bottomNav) this.dom.bottomNav.style.display = isTimers ? 'flex' : 'none';
-    if (this.dom.stopwatchView) this.dom.stopwatchView.style.display = isTimers ? 'none' : 'flex';
-  }
-
-  // -------------------------------------------------------------
-  // Stopwatch (Apple Clock Precision Timer)
-  // -------------------------------------------------------------
-  formatStopwatchTime(ms) {
-    if (isNaN(ms) || ms < 0) ms = 0;
-    const totalCentis = Math.floor(ms / 10);
-    const centis = totalCentis % 100;
-    const totalSecs = Math.floor(totalCentis / 100);
-    const secs = totalSecs % 60;
-    const mins = Math.floor(totalSecs / 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${centis.toString().padStart(2, '0')}`;
-  }
-
-  toggleStopwatch() {
-    window.soundEngine.playTick();
-    if (!this.stopwatch.isRunning) {
-      // Start Stopwatch
-      this.stopwatch.isRunning = true;
-      this.stopwatch.startTime = performance.now();
-      if (this.dom.btnStopwatchStartStop) {
-        this.dom.btnStopwatchStartStop.textContent = 'Stop';
-        this.dom.btnStopwatchStartStop.className = 'btn-circle btn-stopwatch-primary stop';
-      }
-      if (this.dom.btnStopwatchLapReset) {
-        this.dom.btnStopwatchLapReset.textContent = 'Lap';
-        this.dom.btnStopwatchLapReset.disabled = false;
-      }
-      this.stopwatchTick();
-    } else {
-      // Stop Stopwatch
-      this.stopwatch.isRunning = false;
-      this.stopwatch.accumulatedTime += (performance.now() - this.stopwatch.startTime);
-      if (this.stopwatch.animFrameId) {
-        cancelAnimationFrame(this.stopwatch.animFrameId);
-        this.stopwatch.animFrameId = null;
-      }
-      if (this.dom.btnStopwatchStartStop) {
-        this.dom.btnStopwatchStartStop.textContent = 'Start';
-        this.dom.btnStopwatchStartStop.className = 'btn-circle btn-stopwatch-primary start';
-      }
-      if (this.dom.btnStopwatchLapReset) {
-        this.dom.btnStopwatchLapReset.textContent = 'Reset';
-      }
-    }
-  }
-
-  stopwatchTick() {
-    if (!this.stopwatch.isRunning) return;
-    const elapsed = this.stopwatch.accumulatedTime + (performance.now() - this.stopwatch.startTime);
-    if (this.dom.stopwatchDigits) {
-      this.dom.stopwatchDigits.textContent = this.formatStopwatchTime(elapsed);
-    }
-    this.stopwatch.animFrameId = requestAnimationFrame(() => this.stopwatchTick());
-  }
-
-  handleStopwatchLapReset() {
-    window.soundEngine.playTick();
-    if (this.stopwatch.isRunning) {
-      // Record New Lap
-      const currentTotal = this.stopwatch.accumulatedTime + (performance.now() - this.stopwatch.startTime);
-      const prevLapsTotal = this.stopwatch.laps.reduce((sum, l) => sum + l.lapTime, 0);
-      const lapTime = currentTotal - prevLapsTotal;
-      const lapNumber = this.stopwatch.laps.length + 1;
-      this.stopwatch.laps.unshift({ lapNumber, lapTime, overallTime: currentTotal });
-      this.renderStopwatchLaps();
-    } else {
-      // Reset Stopwatch
-      this.stopwatch.accumulatedTime = 0;
-      this.stopwatch.laps = [];
-      if (this.dom.stopwatchDigits) {
-        this.dom.stopwatchDigits.textContent = '00:00.00';
-      }
-      if (this.dom.btnStopwatchLapReset) {
-        this.dom.btnStopwatchLapReset.textContent = 'Lap';
-        this.dom.btnStopwatchLapReset.disabled = true;
-      }
-      this.renderStopwatchLaps();
-    }
-  }
-
-  renderStopwatchLaps() {
-    if (!this.dom.stopwatchLapsList) return;
-    this.dom.stopwatchLapsList.innerHTML = '';
-    if (this.stopwatch.laps.length === 0) return;
-
-    let minLap = Infinity;
-    let maxLap = -Infinity;
-    if (this.stopwatch.laps.length >= 2) {
-      this.stopwatch.laps.forEach(l => {
-        if (l.lapTime < minLap) minLap = l.lapTime;
-        if (l.lapTime > maxLap) maxLap = l.lapTime;
-      });
-    }
-
-    this.stopwatch.laps.forEach(lap => {
-      const item = document.createElement('div');
-      item.className = 'lap-item';
-      if (this.stopwatch.laps.length >= 2) {
-        if (lap.lapTime === minLap) item.classList.add('fastest');
-        else if (lap.lapTime === maxLap) item.classList.add('slowest');
-      }
-      item.innerHTML = `
-        <span>Lap ${lap.lapNumber}</span>
-        <span>${this.formatStopwatchTime(lap.lapTime)}</span>
-        <span>${this.formatStopwatchTime(lap.overallTime)}</span>
-      `;
-      this.dom.stopwatchLapsList.appendChild(item);
-    });
-  }
 
   // -------------------------------------------------------------
   // Custom Sound File Upload Handler

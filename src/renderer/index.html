@@ -38,6 +38,14 @@
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
         </svg>
       </button>
+      <!-- Open Independent Stopwatch -->
+      <button class="icon-btn" id="btnOpenStopwatch" title="Open Stopwatch (Independent Window)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="13" r="8"></circle>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="2" x2="12" y2="5"></line>
+        </svg>
+      </button>
       <!-- Always On Top Pin -->
       <button class="icon-btn" id="btnPinWindow" title="Keep Window Always on Top">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -60,25 +68,6 @@
       </button>
     </div>
   </header>
-
-  <!-- Segmented Mode Switcher: Timers vs Stopwatch -->
-  <nav class="mode-switcher-bar">
-    <button class="mode-tab active" id="tabTimersMode">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <polyline points="12 6 12 12 16 14"></polyline>
-      </svg>
-      <span>Timers</span>
-    </button>
-    <button class="mode-tab" id="tabStopwatchMode">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="13" r="8"></circle>
-        <line x1="12" y1="9" x2="12" y2="13"></line>
-        <line x1="12" y1="2" x2="12" y2="5"></line>
-      </svg>
-      <span>Stopwatch</span>
-    </button>
-  </nav>
 
   <!-- Dynamic Island Pill Header -->
   <section class="dynamic-island-container">
@@ -118,33 +107,10 @@
       <!-- Rendered dynamically when multiple timers are active -->
     </div>
 
-    <!-- Stopwatch View (Apple Clock Style) -->
-    <section class="stopwatch-view" id="stopwatchView" style="display: none;">
-      <div class="stopwatch-hero-card">
-        <div class="stopwatch-digits" id="stopwatchDigits">00:00.00</div>
-        <div class="stopwatch-controls">
-          <button class="btn-circle btn-stopwatch-secondary" id="btnStopwatchLapReset" disabled>Lap</button>
-          <button class="btn-circle btn-stopwatch-primary start" id="btnStopwatchStartStop">Start</button>
-        </div>
-      </div>
-      <div class="stopwatch-laps-section" id="stopwatchLapsSection">
-        <div class="laps-header">
-          <span>Lap</span>
-          <span>Lap Time</span>
-          <span>Overall</span>
-        </div>
-        <div class="laps-list" id="stopwatchLapsList">
-          <!-- Dynamic laps table -->
-        </div>
-      </div>
-    </section>
-
-    <!-- Timers View Wrapper -->
-    <div id="timersViewSection">
-      <!-- Hero Primary Timer Card with Radial Progress Ring -->
-      <section class="hero-timer-card">
-        <div class="pomo-cycle-badge" id="heroPomoBadge" style="display: none;">🔁 Cycle 1/4 • Focus</div>
-        <div class="ring-wrapper">
+    <!-- Hero Primary Timer Card with Radial Progress Ring -->
+    <section class="hero-timer-card">
+      <div class="pomo-cycle-badge" id="heroPomoBadge" style="display: none;">🔁 Cycle 1/4 • Focus</div>
+      <div class="ring-wrapper">
         <svg class="ring-svg" viewBox="0 0 260 260">
           <circle class="ring-track" cx="130" cy="130" r="108"></circle>
           <circle class="ring-progress" id="heroProgressRing" cx="130" cy="130" r="108"
@@ -197,7 +163,6 @@
         <!-- Rendered dynamically -->
       </div>
     </section>
-    </div><!-- End of timersViewSection -->
   </main>
 
   <!-- Floating Bottom Bar: Dock to Taskbar + Add Timer -->

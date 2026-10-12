@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskTimer - Stopwatch</title>
+  <link rel="stylesheet" href="stopwatch.css">
+</head>
+<body>
+
+  <!-- Custom Glass Titlebar -->
+  <header class="titlebar" id="stopwatchTitlebar">
+    <div class="titlebar-brand">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="13" r="8"></circle>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="2" x2="12" y2="5"></line>
+      </svg>
+      <span>Stopwatch</span>
+    </div>
+    <div class="titlebar-actions">
+      <!-- Dock directly on Taskbar -->
+      <button class="icon-btn" id="btnStopwatchDock" title="Dock Stopwatch directly onto Taskbar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="16" width="20" height="6" rx="2"></rect>
+          <path d="M12 4v8m-4-4 4 4 4-4"></path>
+        </svg>
+      </button>
+      <!-- Always on Top Pin -->
+      <button class="icon-btn" id="btnStopwatchPin" title="Keep Stopwatch Always on Top">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="17" x2="12" y2="22"></line>
+          <path d="M5 17h14v-2l-3-3V5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v7l-3 3v2z"></path>
+        </svg>
+      </button>
+      <!-- Minimize -->
+      <button class="icon-btn" id="btnStopwatchMinimize" title="Minimize">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+      <!-- Close -->
+      <button class="icon-btn" id="btnStopwatchClose" title="Close Stopwatch">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Standard Window View -->
+  <main class="stopwatch-container" id="stopwatchStandardContent">
+    <!-- Big Digital Display -->
+    <div class="digits-card">
+      <div class="stopwatch-digits" id="stopwatchDigits">00:00.00</div>
+    </div>
+
+    <!-- Apple-Style Circular Action Buttons -->
+    <div class="stopwatch-controls">
+      <button class="btn-circle btn-lap-reset" id="btnLapReset" disabled>Lap</button>
+      <button class="btn-circle btn-start-stop start" id="btnStartStop">Start</button>
+    </div>
+
+    <!-- Scrollable Laps History Table -->
+    <section class="laps-card" id="lapsCard">
+      <div class="laps-header">
+        <span>Lap</span>
+        <span>Lap Time</span>
+        <span>Overall</span>
+      </div>
+      <div class="laps-list" id="lapsList">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Independent Taskbar Dock Pill View -->
+  <div class="stopwatch-taskbar-wrapper" id="stopwatchTaskbarWrapper">
+    <div class="stopwatch-taskbar-pill" id="stopwatchTaskbarPill">
+      <div class="pill-drag-grip" title="Drag along taskbar">⋮⋮</div>
+      <div class="pill-display" id="pillDisplay" title="Click to Restore Full Window">
+        <span class="pill-icon">⏱️</span>
+        <span class="pill-time" id="pillTime">00:00.00</span>
+      </div>
+      <div class="pill-controls">
+        <button class="pill-btn" id="btnPillLap" title="Lap / Reset">Lap</button>
+        <button class="pill-btn pill-btn-primary" id="btnPillStartStop" title="Start / Stop">▶</button>
+        <button class="pill-btn" id="btnPillRestore" title="Restore Stopwatch Window">⤢</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="stopwatch.js"></script>
+</body>
+</html>

@@ -17,6 +17,11 @@ contextBridge.exposeInMainWorld('timerAPI', {
   closeWindow: () => ipcRenderer.send('window:close'),
   hideToTray: () => ipcRenderer.send('window:hide-to-tray'),
   
+  // Independent Stopwatch Window & Taskbar Presence
+  openStopwatchWindow: () => ipcRenderer.send('window:open-stopwatch'),
+  toggleStopwatchTaskbar: (enable) => ipcRenderer.invoke('stopwatch:toggle-taskbar', enable),
+  updateStopwatchState: (data) => ipcRenderer.send('stopwatch:update', data),
+  
   // Quick timer action event listeners (triggered from taskbar thumb buttons or tray menu)
   onTimerAction: (callback) => {
     ipcRenderer.on('action:timer', (_event, action) => callback(action));

@@ -2,6 +2,9 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification, powe
 const path = require('path');
 
 let mainWindow = null;
+let stopwatchWindow = null;
+let stopwatchTaskbarMode = false;
+let previousStopwatchBounds = null;
 let tray = null;
 let powerBlockerId = null;
 let currentMode = 'standard'; // 'standard', 'mini', 'taskbar', 'standby'
@@ -83,6 +86,49 @@ function createMainWindow() {
   });
 }
 
+function createStopwatchWindow() {
+  if (stopwatchWindow && !stopwatchWindow.isDestroyed()) {
+    stopwatchWindow.show();
+    stopwatchWindow.focus();
+    return stopwatchWindow;
+  }
+
+  const iconPath = getAssetPath('icon.png');
+  const appIcon = nativeImage.createFromPath(iconPath);
+
+  stopwatchWindow = new BrowserWindow({
+    width: 380,
+    height: 540,
+    minWidth: 240,
+    minHeight: 38,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    title: 'TaskTimer - Stopwatch',
+    icon: appIcon,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      backgroundThrottling: false
+    }
+  });
+
+  stopwatchWindow.loadFile(path.join(__dirname, 'renderer', 'stopwatch.html'));
+
+  stopwatchWindow.once('ready-to-show', () => {
+    stopwatchWindow.show();
+  });
+
+  stopwatchWindow.on('closed', () => {
+    stopwatchWindow = null;
+    stopwatchTaskbarMode = false;
+  });
+
+  return stopwatchWindow;
+}
+
 function setupTray() {
   const trayIconPath = getAssetPath('tray.png');
   let trayImage = nativeImage.createFromPath(trayIconPath);
@@ -156,6 +202,12 @@ function updateTrayMenu() {
       label: currentMode === 'standby' ? 'Exit StandBy Mode' : 'Ambient StandBy Lock Mode',
       click: () => {
         toggleStandbyMode(currentMode !== 'standby');
+      }
+    },
+    {
+      label: '⏱️ Open Independent Stopwatch',
+      click: () => {
+        createStopwatchWindow();
       }
     },
     { type: 'separator' },
@@ -485,6 +537,48 @@ function toggleStandbyMode(enable) {
   return currentMode;
 }
 
+function toggleStopwatchTaskbar(enable) {
+  if (!stopwatchWindow || stopwatchWindow.isDestroyed()) return false;
+
+  if (enable) {
+    if (!stopwatchTaskbarMode) {
+      previousStopwatchBounds = stopwatchWindow.getBounds();
+    }
+    stopwatchTaskbarMode = true;
+    stopwatchWindow.setAlwaysOnTop(true, 'screen-saver');
+    stopwatchWindow.setMinimumSize(180, 38);
+
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.bounds;
+    const taskbarWidth = 240;
+    const taskbarHeight = 46;
+
+    // Position next to the timer pill on the primary display
+    const xPos = Math.max(0, width - 490 - taskbarWidth - 12);
+    const yPos = Math.max(0, height - taskbarHeight - 6);
+
+    stopwatchWindow.setBounds({
+      x: xPos,
+      y: yPos,
+      width: taskbarWidth,
+      height: taskbarHeight
+    }, true);
+  } else {
+    stopwatchTaskbarMode = false;
+    stopwatchWindow.setAlwaysOnTop(false);
+    stopwatchWindow.setMinimumSize(240, 38);
+    if (previousStopwatchBounds) {
+      stopwatchWindow.setBounds(previousStopwatchBounds, true);
+    } else {
+      stopwatchWindow.setSize(380, 540, true);
+      stopwatchWindow.center();
+    }
+    stopwatchWindow.show();
+    stopwatchWindow.focus();
+  }
+  return stopwatchTaskbarMode;
+}
+
 ipcMain.handle('window:toggle-mini', (_event, enable) => toggleMiniMode(enable));
 ipcMain.handle('window:toggle-taskbar-bar', (_event, enable) => toggleTaskbarBar(enable));
 ipcMain.handle('window:expand-taskbar-stack', (_event, expand) => {
@@ -509,23 +603,58 @@ ipcMain.handle('window:expand-taskbar-stack', (_event, expand) => {
   return true;
 });
 ipcMain.handle('window:toggle-standby', (_event, enable) => toggleStandbyMode(enable));
-ipcMain.handle('window:toggle-always-on-top', (_event, enable) => {
-  if (mainWindow) {
-    mainWindow.setAlwaysOnTop(enable, 'floating');
+ipcMain.handle('window:toggle-always-on-top', (event, enable) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  if (win && !win.isDestroyed()) {
+    win.setAlwaysOnTop(enable, 'floating');
   }
   return enable;
 });
 
-ipcMain.on('window:minimize', () => {
-  if (mainWindow) mainWindow.minimize();
+ipcMain.on('window:minimize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  if (win && !win.isDestroyed()) win.minimize();
 });
 
-ipcMain.on('window:close', () => {
-  if (mainWindow) mainWindow.hide();
+ipcMain.on('window:close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  if (win === mainWindow) {
+    mainWindow.hide();
+  } else if (win && !win.isDestroyed()) {
+    win.close();
+  }
 });
 
-ipcMain.on('window:hide-to-tray', () => {
-  if (mainWindow) mainWindow.hide();
+ipcMain.on('window:hide-to-tray', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  if (win && !win.isDestroyed()) win.hide();
+});
+
+// Stopwatch Window IPC Handlers
+ipcMain.on('window:open-stopwatch', () => {
+  createStopwatchWindow();
+});
+
+ipcMain.handle('stopwatch:toggle-taskbar', (_event, enable) => {
+  return toggleStopwatchTaskbar(enable);
+});
+
+let lastStopwatchTitle = '';
+ipcMain.on('stopwatch:update', (_event, data) => {
+  if (!stopwatchWindow || stopwatchWindow.isDestroyed()) return;
+  const { isRunning, formattedTime } = data || {};
+  const targetTitle = isRunning
+    ? `⏱️ ${formattedTime} | Stopwatch`
+    : (formattedTime ? `${formattedTime} | Stopwatch` : 'TaskTimer - Stopwatch');
+  if (targetTitle !== lastStopwatchTitle) {
+    stopwatchWindow.setTitle(targetTitle);
+    lastStopwatchTitle = targetTitle;
+  }
+  if (isRunning) {
+    stopwatchWindow.setProgressBar(2, { mode: 'indeterminate' });
+  } else {
+    stopwatchWindow.setProgressBar(-1, { mode: 'none' });
+  }
 });
 
 ipcMain.handle('system:info', () => ({
