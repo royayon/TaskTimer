@@ -17,10 +17,29 @@ class TaskTimerApp {
     this.editingSound = 'radar';
     this.tickInterval = null;
 
+    // Performance & Frame Scheduling State
+    this._renderScheduled = false;
+    this._needsRender = false;
+    this._iconCanvas = null;
+    this._iconCtx = null;
+    this._lastIconKey = null;
+    this._lastIconDataUrl = null;
+    this._lastSyncedOsKey = null;
+    this._dragRafPending = false;
+
     // SVG Circle Circumference for 108px radius
     this.CIRCUMFERENCE = 2 * Math.PI * 108; // ~678.58
 
     this.init();
+  }
+
+  scheduleRender() {
+    if (this._renderScheduled) return;
+    this._renderScheduled = true;
+    requestAnimationFrame(() => {
+      this._renderScheduled = false;
+      this.render();
+    });
   }
 
   init() {
@@ -519,7 +538,13 @@ class TaskTimerApp {
       if (Math.abs(walk) > 4) {
         this.isStackTabsDragging = true;
       }
-      container.scrollLeft = scrollLeft - walk;
+      if (!this._dragRafPending) {
+        this._dragRafPending = true;
+        requestAnimationFrame(() => {
+          this._dragRafPending = false;
+          container.scrollLeft = scrollLeft - walk;
+        });
+      }
     });
 
     // Touch support for drag scroll
@@ -537,7 +562,13 @@ class TaskTimerApp {
       if (Math.abs(walk) > 4) {
         this.isStackTabsDragging = true;
       }
-      container.scrollLeft = touchScrollLeft - walk;
+      if (!this._dragRafPending) {
+        this._dragRafPending = true;
+        requestAnimationFrame(() => {
+          this._dragRafPending = false;
+          container.scrollLeft = touchScrollLeft - walk;
+        });
+      }
     }, { passive: true });
 
     container.addEventListener('touchend', () => {
@@ -603,17 +634,16 @@ class TaskTimerApp {
   startTickLoop() {
     this.tickInterval = setInterval(() => {
       this.tick();
-    }, 250);
+    }, 200);
   }
 
   tick() {
     const now = Date.now();
-    let hasRunning = false;
     let anyStateChanged = false;
 
-    this.timers.forEach(t => {
+    for (let i = 0; i < this.timers.length; i++) {
+      const t = this.timers[i];
       if (t.status === 'running') {
-        hasRunning = true;
         const diff = Math.ceil((t.endTimestamp - now) / 1000);
 
         if (diff <= 0) {
@@ -632,17 +662,21 @@ class TaskTimerApp {
           anyStateChanged = true;
         }
       }
-    });
+    }
 
-    if (hasRunning || anyStateChanged) {
-      this.render();
+    if (anyStateChanged || this._needsRender) {
+      this._needsRender = false;
+      this.scheduleRender();
       this.syncWithOsTaskbar();
     }
 
     // Update real-time clock in StandBy view
     if (this.isStandbyMode && this.dom.standbyClockNow) {
       const date = new Date();
-      this.dom.standbyClockNow.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (this.dom.standbyClockNow.textContent !== timeStr) {
+        this.dom.standbyClockNow.textContent = timeStr;
+      }
     }
   }
 
@@ -665,11 +699,20 @@ class TaskTimerApp {
 
   createDynamicTaskbarIcon(timer) {
     if (!timer) return null;
+    const cacheKey = `${timer.remaining}_${timer.total}_${timer.color}`;
+    if (this._lastIconKey === cacheKey && this._lastIconDataUrl) {
+      return this._lastIconDataUrl;
+    }
+
     try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 64;
-      canvas.height = 64;
-      const ctx = canvas.getContext('2d');
+      if (!this._iconCanvas) {
+        this._iconCanvas = document.createElement('canvas');
+        this._iconCanvas.width = 64;
+        this._iconCanvas.height = 64;
+        this._iconCtx = this._iconCanvas.getContext('2d');
+      }
+      const ctx = this._iconCtx;
+      ctx.clearRect(0, 0, 64, 64);
 
       // Circular background badge
       ctx.fillStyle = '#101014';
@@ -712,24 +755,31 @@ class TaskTimerApp {
         ctx.fillText(`:${rem.toString().padStart(2, '0')}`, 32, 33);
       }
 
-      return canvas.toDataURL('image/png');
+      this._lastIconKey = cacheKey;
+      this._lastIconDataUrl = this._iconCanvas.toDataURL('image/png');
+      return this._lastIconDataUrl;
     } catch (e) {
       return null;
     }
   }
 
   // -------------------------------------------------------------
-  // Taskbar / Menu Bar / Dock IPC Sync
+  // Taskbar / Menu Bar / Dock IPC Sync (De-duplicated & Throttled)
   // -------------------------------------------------------------
   syncWithOsTaskbar() {
     if (!window.timerAPI) return;
 
     const running = this.timers.filter(t => t.status === 'running');
-    // Find primary timer: currently selected, or the running one closest to completion
     let primary = this.getPrimaryTimer();
     if (running.length > 0 && (!primary || primary.status !== 'running')) {
       primary = running.reduce((prev, curr) => (curr.remaining < prev.remaining ? curr : prev));
     }
+
+    const syncKey = `${running.length}_${primary ? `${primary.id}_${primary.remaining}_${primary.status}` : 'none'}`;
+    if (this._lastSyncedOsKey === syncKey) {
+      return;
+    }
+    this._lastSyncedOsKey = syncKey;
 
     const dynamicIcon = primary ? this.createDynamicTaskbarIcon(primary) : null;
 
@@ -1401,50 +1451,74 @@ class TaskTimerApp {
 
     const miniCircumference = 2 * Math.PI * 18; // radius 18
 
-    // In-place update to prevent DOM destruction during active countdown
+    // In-place update to prevent DOM destruction and layout thrashing
     const existingCards = this.dom.timersListContainer.querySelectorAll('.timer-card');
     if (existingCards.length === this.timers.length) {
       let canUpdateInPlace = true;
-      existingCards.forEach((card, idx) => {
-        if (card.getAttribute('data-timer-id') !== this.timers[idx].id) canUpdateInPlace = false;
-      });
+      for (let i = 0; i < existingCards.length; i++) {
+        if (existingCards[i].getAttribute('data-timer-id') !== this.timers[i].id) {
+          canUpdateInPlace = false;
+          break;
+        }
+      }
 
       if (canUpdateInPlace) {
-        existingCards.forEach((card, idx) => {
+        for (let idx = 0; idx < existingCards.length; idx++) {
+          const card = existingCards[idx];
           const timer = this.timers[idx];
           const isPrimary = timer.id === this.primaryTimerId;
-          card.className = `timer-card ${isPrimary ? 'active-primary' : ''}`;
+          const targetClass = `timer-card ${isPrimary ? 'active-primary' : ''}`;
+          if (card.className !== targetClass) card.className = targetClass;
 
-          const titleEl = card.querySelector('.timer-title');
-          if (titleEl) titleEl.textContent = timer.label;
-
-          const iconEl = card.querySelector('.mini-ring-icon');
-          if (iconEl) iconEl.textContent = timer.category || '⏱️';
-
-          const timeEl = card.querySelector('.timer-remaining');
-          if (timeEl) {
-            timeEl.textContent = this.formatTime(timer.remaining);
-            timeEl.style.color = timer.color || '#ff9f0a';
+          let refs = card._refs;
+          if (!refs) {
+            refs = {
+              titleEl: card.querySelector('.timer-title'),
+              iconEl: card.querySelector('.mini-ring-icon'),
+              timeEl: card.querySelector('.timer-remaining'),
+              statusEl: card.querySelector('.timer-status-text'),
+              progressCircle: card.querySelector('.mini-ring-progress'),
+              toggleBtn: card.querySelector('[data-action="toggle"]')
+            };
+            card._refs = refs;
           }
 
-          const statusEl = card.querySelector('.timer-status-text');
-          if (statusEl) statusEl.textContent = timer.status.toUpperCase();
-
-          const progressCircle = card.querySelector('.mini-ring-progress');
-          if (progressCircle) {
+          if (refs.titleEl && refs.titleEl.textContent !== timer.label) {
+            refs.titleEl.textContent = timer.label;
+          }
+          if (refs.iconEl && refs.iconEl.textContent !== (timer.category || '⏱️')) {
+            refs.iconEl.textContent = timer.category || '⏱️';
+          }
+          const formatted = this.formatTime(timer.remaining);
+          if (refs.timeEl && refs.timeEl.textContent !== formatted) {
+            refs.timeEl.textContent = formatted;
+            refs.timeEl.style.color = timer.color || '#ff9f0a';
+          }
+          const upStatus = timer.status.toUpperCase();
+          if (refs.statusEl && refs.statusEl.textContent !== upStatus) {
+            refs.statusEl.textContent = upStatus;
+          }
+          if (refs.progressCircle) {
             const frac = Math.max(0, Math.min(1, timer.remaining / (timer.total || 1)));
-            progressCircle.style.strokeDashoffset = miniCircumference * (1 - frac);
-            progressCircle.style.stroke = timer.color || '#ff9f0a';
+            const newOffset = (miniCircumference * (1 - frac)).toFixed(2);
+            if (refs.progressCircle.getAttribute('data-offset') !== newOffset) {
+              refs.progressCircle.setAttribute('data-offset', newOffset);
+              refs.progressCircle.style.strokeDashoffset = newOffset;
+              refs.progressCircle.style.stroke = timer.color || '#ff9f0a';
+            }
           }
-
-          const toggleBtn = card.querySelector('[data-action="toggle"]');
-          if (toggleBtn) {
-            toggleBtn.title = timer.status === 'running' ? 'Pause' : 'Start';
-            toggleBtn.innerHTML = timer.status === 'running'
-              ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
-              : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+          if (refs.toggleBtn) {
+            const isRun = timer.status === 'running';
+            const curState = refs.toggleBtn.getAttribute('data-running');
+            if (curState !== (isRun ? 'true' : 'false')) {
+              refs.toggleBtn.setAttribute('data-running', isRun ? 'true' : 'false');
+              refs.toggleBtn.title = isRun ? 'Pause' : 'Start';
+              refs.toggleBtn.innerHTML = isRun
+                ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
+                : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+            }
           }
-        });
+        }
         return;
       }
     }
@@ -1509,6 +1583,15 @@ class TaskTimerApp {
         </div>
       `;
 
+      card._refs = {
+        titleEl: card.querySelector('.timer-title'),
+        iconEl: card.querySelector('.mini-ring-icon'),
+        timeEl: card.querySelector('.timer-remaining'),
+        statusEl: card.querySelector('.timer-status-text'),
+        progressCircle: card.querySelector('.mini-ring-progress'),
+        toggleBtn: card.querySelector('[data-action="toggle"]')
+      };
+
       // Select timer as primary on single click
       card.addEventListener('click', (e) => {
         if (e.target.closest('.timer-card-actions')) return;
@@ -1561,10 +1644,54 @@ class TaskTimerApp {
   }
 
   renderMiniWidgetList() {
+    if (!this.dom.miniTimersList) return;
+
+    const existingItems = this.dom.miniTimersList.querySelectorAll('.mini-timer-item');
+    if (existingItems.length === this.timers.length) {
+      let canUpdateInPlace = true;
+      for (let i = 0; i < existingItems.length; i++) {
+        if (existingItems[i].getAttribute('data-id') !== this.timers[i].id) {
+          canUpdateInPlace = false;
+          break;
+        }
+      }
+      if (canUpdateInPlace) {
+        for (let idx = 0; idx < existingItems.length; idx++) {
+          const item = existingItems[idx];
+          const timer = this.timers[idx];
+          let refs = item._refs;
+          if (!refs) {
+            refs = {
+              nameEl: item.querySelector('.mini-item-name'),
+              digitsEl: item.querySelector('.mini-item-digits'),
+              toggleBtn: item.querySelector('[data-action="toggle"]')
+            };
+            item._refs = refs;
+          }
+          if (refs.nameEl && refs.nameEl.textContent !== timer.label) {
+            refs.nameEl.textContent = timer.label;
+          }
+          const formatted = this.formatTime(timer.remaining);
+          if (refs.digitsEl && refs.digitsEl.textContent !== formatted) {
+            refs.digitsEl.textContent = formatted;
+            refs.digitsEl.style.color = timer.color || '#ff9f0a';
+          }
+          if (refs.toggleBtn) {
+            const btnChar = timer.status === 'running' ? '⏸' : '▶';
+            if (refs.toggleBtn.textContent !== btnChar) {
+              refs.toggleBtn.textContent = btnChar;
+            }
+          }
+        }
+        return;
+      }
+    }
+
     this.dom.miniTimersList.innerHTML = '';
     this.timers.forEach(timer => {
       const item = document.createElement('div');
       item.className = 'mini-timer-item';
+      item.setAttribute('data-id', timer.id);
       item.innerHTML = `
         <div class="mini-item-left">
           <span>${timer.category || '⏱️'}</span>
@@ -1582,6 +1709,12 @@ class TaskTimerApp {
           </button>
         </div>
       `;
+
+      item._refs = {
+        nameEl: item.querySelector('.mini-item-name'),
+        digitsEl: item.querySelector('.mini-item-digits'),
+        toggleBtn: item.querySelector('[data-action="toggle"]')
+      };
 
       item.querySelector('[data-action="toggle"]').addEventListener('click', () => {
         window.soundEngine.playTick();

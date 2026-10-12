@@ -22,6 +22,16 @@ if (!gotSingleInstanceLock) {
   });
 }
 
+// Hardware Acceleration & High-Performance Flags
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+
+let lastAppliedTitle = '';
+let lastAppliedProgress = -2;
+let lastAppliedProgressMode = '';
+let lastAppliedOverlay = '';
+let lastTrayStateKey = '';
+
 function getAssetPath(filename) {
   return path.join(__dirname, 'assets', filename);
 }
@@ -226,98 +236,128 @@ function sendActionToRenderer(action) {
 }
 
 // -------------------------------------------------------------
-// IPC Handlers: Timer State Synchronization & Taskbar Icon
+// IPC Handlers: Timer State Synchronization & Taskbar Icon (High-Performance Cached)
 // -------------------------------------------------------------
+let lastAppliedTooltip = '';
+
 ipcMain.on('timer:update', (_event, data) => {
   lastTimerData = data;
   const { activeCount, primaryTimer, dynamicIcon } = data;
 
   if (!mainWindow || mainWindow.isDestroyed()) return;
 
-  // 1. Live Dynamic Taskbar Icon rendering (Digits & progress inside taskbar button itself!)
-  if (dynamicIcon) {
+  // 1. Live Dynamic Taskbar Badge Icon (cached, avoids Windows Explorer taskbar thumbnail flicker)
+  if (dynamicIcon && dynamicIcon !== lastAppliedOverlay) {
+    lastAppliedOverlay = dynamicIcon;
     try {
       const dynImg = nativeImage.createFromDataURL(dynamicIcon);
-      if (!dynImg.isEmpty()) {
-        mainWindow.setIcon(dynImg);
-        if (process.platform === 'win32' && primaryTimer) {
-          mainWindow.setOverlayIcon(dynImg, primaryTimer.label || 'Timer');
-        }
+      if (!dynImg.isEmpty() && process.platform === 'win32' && primaryTimer) {
+        mainWindow.setOverlayIcon(dynImg, primaryTimer.label || 'Timer');
       }
     } catch (e) {
       console.warn('Failed to apply dynamic taskbar icon:', e);
     }
+  } else if (!dynamicIcon && lastAppliedOverlay) {
+    lastAppliedOverlay = '';
+    if (process.platform === 'win32') {
+      mainWindow.setOverlayIcon(null, '');
+    }
   }
+
+  let targetTitle = 'TaskTimer';
+  let targetProgress = -1;
+  let targetProgressMode = 'none';
 
   if (primaryTimer && primaryTimer.status === 'running') {
     const progress = Math.min(1.0, Math.max(0.0, (primaryTimer.total - primaryTimer.remaining) / (primaryTimer.total || 1)));
     const formatted = formatSeconds(primaryTimer.remaining);
-
-    // 2. Windows Taskbar Progress Bar & Title
-    mainWindow.setProgressBar(progress, { mode: 'normal' });
     const countTag = activeCount > 1 ? ` (+${activeCount - 1})` : '';
-    const newTitle = `⏱️ ${formatted} - ${primaryTimer.label}${countTag} | TaskTimer`;
-    mainWindow.setTitle(newTitle);
+    targetTitle = `⏱️ ${formatted} - ${primaryTimer.label}${countTag} | TaskTimer`;
+    targetProgress = progress;
+    targetProgressMode = 'normal';
 
-    // 3. macOS Dock & Menu Bar Tray
     if (process.platform === 'darwin') {
       app.dock.setBadge(formatted);
-      if (tray) {
-        tray.setTitle(` ⏱️ ${formatted}`);
-      }
+      if (tray) tray.setTitle(` ⏱️ ${formatted}`);
     }
-
-    // 4. Tray Tooltip
     if (tray) {
-      tray.setToolTip(`TaskTimer: ${primaryTimer.label} (${formatted})${countTag}`);
+      const tip = `TaskTimer: ${primaryTimer.label} (${formatted})${countTag}`;
+      if (tip !== lastAppliedTooltip) {
+        tray.setToolTip(tip);
+        lastAppliedTooltip = tip;
+      }
     }
   } else if (primaryTimer && primaryTimer.status === 'paused') {
     const progress = Math.min(1.0, Math.max(0.0, (primaryTimer.total - primaryTimer.remaining) / (primaryTimer.total || 1)));
     const formatted = formatSeconds(primaryTimer.remaining);
-
-    mainWindow.setProgressBar(progress, { mode: 'paused' });
-    mainWindow.setTitle(`⏸️ ${formatted} (Paused) - ${primaryTimer.label} | TaskTimer`);
+    targetTitle = `⏸️ ${formatted} (Paused) - ${primaryTimer.label} | TaskTimer`;
+    targetProgress = progress;
+    targetProgressMode = 'paused';
 
     if (process.platform === 'darwin') {
       app.dock.setBadge('⏸');
-      if (tray) {
-        tray.setTitle(` ⏸️ ${formatted}`);
-      }
+      if (tray) tray.setTitle(` ⏸️ ${formatted}`);
     }
     if (tray) {
-      tray.setToolTip(`TaskTimer: Paused - ${primaryTimer.label} (${formatted})`);
+      const tip = `TaskTimer: Paused - ${primaryTimer.label} (${formatted})`;
+      if (tip !== lastAppliedTooltip) {
+        tray.setToolTip(tip);
+        lastAppliedTooltip = tip;
+      }
     }
   } else if (primaryTimer && primaryTimer.status === 'completed') {
-    // Red indicator on taskbar for ringing/expired timer
-    mainWindow.setProgressBar(1.0, { mode: 'error' });
-    mainWindow.setTitle(`🔔 DONE: ${primaryTimer.label} | TaskTimer`);
+    targetTitle = `🔔 DONE: ${primaryTimer.label} | TaskTimer`;
+    targetProgress = 1.0;
+    targetProgressMode = 'error';
 
     if (process.platform === 'darwin') {
       app.dock.setBadge('🔔');
-      if (tray) {
-        tray.setTitle(` 🔔 DONE`);
-      }
+      if (tray) tray.setTitle(` 🔔 DONE`);
     }
     if (tray) {
-      tray.setToolTip(`TaskTimer: Timer Finished - ${primaryTimer.label}`);
+      const tip = `TaskTimer: Timer Finished - ${primaryTimer.label}`;
+      if (tip !== lastAppliedTooltip) {
+        tray.setToolTip(tip);
+        lastAppliedTooltip = tip;
+      }
     }
   } else {
-    // Clear taskbar progress bar
-    mainWindow.setProgressBar(-1);
-    mainWindow.setTitle('TaskTimer');
+    targetTitle = 'TaskTimer';
+    targetProgress = -1;
+    targetProgressMode = 'none';
 
     if (process.platform === 'darwin') {
       app.dock.setBadge('');
-      if (tray) {
-        tray.setTitle('');
-      }
+      if (tray) tray.setTitle('');
     }
     if (tray) {
-      tray.setToolTip('TaskTimer - iPhone Style Multi-Timer');
+      const tip = 'TaskTimer - iPhone Style Multi-Timer';
+      if (tip !== lastAppliedTooltip) {
+        tray.setToolTip(tip);
+        lastAppliedTooltip = tip;
+      }
     }
   }
 
-  updateTrayMenu();
+  // De-duplicate native window title changes
+  if (targetTitle !== lastAppliedTitle) {
+    mainWindow.setTitle(targetTitle);
+    lastAppliedTitle = targetTitle;
+  }
+
+  // De-duplicate taskbar progress updates
+  if (Math.abs(targetProgress - lastAppliedProgress) > 0.003 || targetProgressMode !== lastAppliedProgressMode) {
+    mainWindow.setProgressBar(targetProgress, { mode: targetProgressMode });
+    lastAppliedProgress = targetProgress;
+    lastAppliedProgressMode = targetProgressMode;
+  }
+
+  // Only rebuild context menu if active count or status changed (avoids rebuilding Win32 menu every second)
+  const currentTrayKey = `${activeCount}_${primaryTimer ? primaryTimer.status : 'none'}`;
+  if (currentTrayKey !== lastTrayStateKey) {
+    lastTrayStateKey = currentTrayKey;
+    updateTrayMenu();
+  }
 });
 
 // Timer Complete Notification (persists to Lockscreen)

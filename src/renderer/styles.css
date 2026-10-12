@@ -279,6 +279,8 @@ body::before {
   align-items: center;
   position: relative;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  contain: layout paint;
+  transform: translateZ(0);
 }
 
 .ring-wrapper {
@@ -478,6 +480,8 @@ body::before {
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
+  contain: layout paint;
+  transform: translateZ(0);
 }
 
 .timer-card:hover {
@@ -739,6 +743,7 @@ body::before {
   overflow-y: auto;
   transform: translateY(100%);
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
 .modal-overlay.open .modal-sheet {
@@ -1255,6 +1260,8 @@ body.standby-mode.night-mode .lock-persist-dot {
   z-index: 50;
   position: relative;
   box-sizing: border-box;
+  will-change: scroll-position;
+  transform: translateZ(0);
 }
 
 .hero-stack-tabs.dragging {
