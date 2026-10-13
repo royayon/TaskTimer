@@ -157,7 +157,11 @@ class TaskTimerApp {
       islandTime: document.getElementById('islandTime'),
       islandBadge: document.getElementById('islandBadge'),
 
-      // Hero Primary Timer Card
+      // Hero Carousel Deck (Swipeable timer cards with stacks on left and right)
+      heroCarouselViewport: document.getElementById('heroCarouselViewport'),
+      heroCarouselTrack: document.getElementById('heroCarouselTrack'),
+      btnCarouselPrev: document.getElementById('btnCarouselPrev'),
+      btnCarouselNext: document.getElementById('btnCarouselNext'),
       heroProgressRing: document.getElementById('heroProgressRing'),
       heroTimerTag: document.getElementById('heroTimerTag'),
       heroCategoryIcon: document.getElementById('heroCategoryIcon'),
@@ -378,20 +382,55 @@ class TaskTimerApp {
       });
     }
 
-    // Hero Quick Controls
-    this.dom.btnAddOneMinute.addEventListener('click', () => {
-      window.soundEngine.playTick();
-      this.addTimeToPrimary(60);
-    });
+    // Hero Quick Controls (safely guarded)
+    if (this.dom.btnAddOneMinute) {
+      this.dom.btnAddOneMinute.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.addTimeToPrimary(60);
+      });
+    }
 
-    this.dom.btnHeroTogglePlay.addEventListener('click', () => {
-      window.soundEngine.playTick();
-      this.toggleTimerPlay(this.primaryTimerId);
-    });
+    if (this.dom.btnHeroTogglePlay) {
+      this.dom.btnHeroTogglePlay.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.toggleTimerPlay(this.primaryTimerId);
+      });
+    }
 
-    this.dom.btnHeroReset.addEventListener('click', () => {
-      window.soundEngine.playTick();
-      this.resetTimer(this.primaryTimerId);
+    if (this.dom.btnHeroReset) {
+      this.dom.btnHeroReset.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        this.resetTimer(this.primaryTimerId);
+      });
+    }
+
+    // Hero Carousel Deck Navigation Chevrons
+    if (this.dom.btnCarouselPrev) {
+      this.dom.btnCarouselPrev.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const activeIndex = this.timers.findIndex(t => t.id === this.primaryTimerId);
+        if (activeIndex > 0) {
+          window.soundEngine.playTick();
+          this.slideToTimer(this.timers[activeIndex - 1].id);
+        }
+      });
+    }
+
+    if (this.dom.btnCarouselNext) {
+      this.dom.btnCarouselNext.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const activeIndex = this.timers.findIndex(t => t.id === this.primaryTimerId);
+        if (activeIndex < this.timers.length - 1) {
+          window.soundEngine.playTick();
+          this.slideToTimer(this.timers[activeIndex + 1].id);
+        }
+      });
+    }
+
+    this.setupCarouselDraggable();
+
+    window.addEventListener('resize', () => {
+      if (!this.isCarouselDragging) this.renderHeroCarousel();
     });
 
     // Dynamic Island Click -> Focus primary or open mini
@@ -1098,24 +1137,30 @@ class TaskTimerApp {
     this.syncWithOsTaskbar();
   }
 
-  addTimeToPrimary(seconds = 60) {
-    const primary = this.getPrimaryTimer();
-    if (!primary) return;
+  addTimeToTimer(timerId, seconds = 60) {
+    const timer = this.timers.find(t => t.id === timerId);
+    if (!timer) return;
 
-    primary.remaining += seconds;
-    primary.total = Math.max(primary.total, primary.remaining);
+    timer.remaining += seconds;
+    timer.total = Math.max(timer.total, timer.remaining);
 
-    if (primary.status === 'running') {
-      primary.endTimestamp = Date.now() + (primary.remaining * 1000);
-    } else if (primary.status === 'completed') {
+    if (timer.status === 'running') {
+      timer.endTimestamp = Date.now() + (timer.remaining * 1000);
+    } else if (timer.status === 'completed') {
       window.soundEngine.stopRinging();
-      primary.status = 'running';
-      primary.endTimestamp = Date.now() + (primary.remaining * 1000);
+      timer.status = 'running';
+      timer.endTimestamp = Date.now() + (timer.remaining * 1000);
     }
 
     this.saveTimers();
     this.render();
     this.syncWithOsTaskbar();
+  }
+
+  addTimeToPrimary(seconds = 60) {
+    if (this.primaryTimerId) {
+      this.addTimeToTimer(this.primaryTimerId, seconds);
+    }
   }
 
   deleteTimer(timerId) {
@@ -1698,6 +1743,383 @@ class TaskTimerApp {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
+  slideToTimer(timerId) {
+    const targetIndex = this.timers.findIndex(t => t.id === timerId);
+    if (targetIndex === -1) return;
+
+    this.primaryTimerId = timerId;
+
+    if (this.dom.heroCarouselTrack) {
+      this.dom.heroCarouselTrack.style.transition = 'transform 0.42s cubic-bezier(0.16, 1, 0.3, 1)';
+    }
+
+    this.render();
+    this.syncWithOsTaskbar();
+  }
+
+  buildHeroSlideHtml(t) {
+    const isPomodoro = Boolean(t.isPomodoro);
+    const phaseName = t.pomoPhase === 'focus' ? 'Focus' : (t.pomoPhase === 'short_break' ? 'Short Break' : 'Long Break');
+    const pomoBadgeStyle = isPomodoro ? `display: inline-block; border-color: ${t.color || '#ff9f0a'}; color: ${t.color || '#ff9f0a'};` : 'display: none;';
+    const pomoBadgeText = isPomodoro ? `🔁 Cycle ${t.pomoCycle || 1}/4 • ${phaseName}` : '';
+
+    const progressFraction = Math.max(0, Math.min(1, t.remaining / (t.total || 1)));
+    const offset = (this.CIRCUMFERENCE * (1 - progressFraction)).toFixed(2);
+    const color = t.color || '#ff9f0a';
+
+    let endTimeText = '';
+    if (t.status === 'running') {
+      const endDate = new Date(Date.now() + t.remaining * 1000);
+      endTimeText = `Ends at ${endDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    } else if (t.status === 'paused') {
+      endTimeText = 'Paused';
+    } else if (t.status === 'completed') {
+      endTimeText = '🔔 Complete!';
+    } else {
+      endTimeText = `Total: ${this.formatTime(t.total)}`;
+    }
+
+    const isRunning = t.status === 'running';
+    const isCompleted = t.status === 'completed';
+    const playClass = isCompleted
+      ? 'btn-circle btn-primary-action completed btn-card-toggle-play'
+      : (isRunning ? 'btn-circle btn-primary-action btn-card-toggle-play' : 'btn-circle btn-primary-action paused btn-card-toggle-play');
+    const playStyle = isRunning ? `background: ${color};` : '';
+    const playSvg = isRunning
+      ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
+      : (isCompleted
+          ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>'
+          : '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>'
+        );
+
+    return `
+      <section class="hero-timer-card">
+        <div class="pomo-cycle-badge" style="${pomoBadgeStyle}">${pomoBadgeText}</div>
+        <div class="ring-wrapper">
+          <svg class="ring-svg" viewBox="0 0 260 260">
+            <circle class="ring-track" cx="130" cy="130" r="108"></circle>
+            <circle class="ring-progress" cx="130" cy="130" r="108"
+                    stroke-dasharray="${this.CIRCUMFERENCE}" stroke-dashoffset="${offset}"
+                    style="stroke: ${color}; filter: drop-shadow(0 0 12px ${color}88);"></circle>
+          </svg>
+          <div class="ring-center-content">
+            <div class="timer-label-tag" title="Click to Edit Timer (Name, Color, Sound)">
+              <span class="category-icon">${t.category || '⏱️'}</span>
+              <span class="timer-label">${t.label}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6; margin-left: 2px;">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </div>
+            <div class="timer-digits">${this.formatTime(t.remaining)}</div>
+            <div class="timer-meta">
+              <span class="end-time">${endTimeText}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="timer-controls">
+          <button class="btn-circle btn-secondary btn-card-add-1m" title="Add 1 Minute">+1m</button>
+          <button class="${playClass}" style="${playStyle}" title="${isRunning ? 'Pause' : 'Start'}">
+            ${playSvg}
+          </button>
+          <button class="btn-circle btn-secondary btn-card-reset" title="Reset Timer">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="1 4 1 10 7 10"></polyline>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+          </button>
+        </div>
+      </section>
+    `;
+  }
+
+  renderHeroCarousel() {
+    const track = this.dom.heroCarouselTrack;
+    const viewport = this.dom.heroCarouselViewport;
+    if (!track || !viewport) return;
+
+    if (this.timers.length === 0) {
+      track.innerHTML = `
+        <div class="hero-carousel-slide active" style="width: 100%; cursor: default;">
+          <section class="hero-timer-card">
+            <div class="timer-digits" style="font-size: 28px; margin: 40px 0;">No Timers</div>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Create a timer to get started</p>
+          </section>
+        </div>
+      `;
+      if (this.dom.btnCarouselPrev) this.dom.btnCarouselPrev.style.display = 'none';
+      if (this.dom.btnCarouselNext) this.dom.btnCarouselNext.style.display = 'none';
+      return;
+    }
+
+    const currentTimerKeys = this.timers.map(t => `${t.id}-${t.label}-${t.total}-${t.color}-${t.category}`).join('|');
+    const existingSlides = track.querySelectorAll('.hero-carousel-slide');
+
+    let needsFullRebuild = false;
+    if (existingSlides.length !== this.timers.length) {
+      needsFullRebuild = true;
+    } else {
+      for (let i = 0; i < existingSlides.length; i++) {
+        if (existingSlides[i].getAttribute('data-id') !== this.timers[i].id) {
+          needsFullRebuild = true;
+          break;
+        }
+      }
+    }
+
+    if (needsFullRebuild) {
+      track.innerHTML = '';
+      this.timers.forEach((t) => {
+        const slide = document.createElement('div');
+        slide.className = 'hero-carousel-slide';
+        slide.setAttribute('data-id', t.id);
+        slide.innerHTML = this.buildHeroSlideHtml(t);
+
+        const btnAdd = slide.querySelector('.btn-card-add-1m');
+        if (btnAdd) {
+          btnAdd.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.soundEngine.playTick();
+            this.addTimeToTimer(t.id, 60);
+          });
+        }
+
+        const btnPlay = slide.querySelector('.btn-card-toggle-play');
+        if (btnPlay) {
+          btnPlay.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.soundEngine.playTick();
+            this.toggleTimerPlay(t.id);
+          });
+        }
+
+        const btnReset = slide.querySelector('.btn-card-reset');
+        if (btnReset) {
+          btnReset.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.soundEngine.playTick();
+            this.resetTimer(t.id);
+          });
+        }
+
+        const tag = slide.querySelector('.timer-label-tag');
+        if (tag) {
+          tag.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.soundEngine.playTick();
+            this.openEditModal(t.id);
+          });
+        }
+
+        slide.addEventListener('click', () => {
+          if (this.isCarouselDragging) return;
+          if (t.id !== this.primaryTimerId) {
+            window.soundEngine.playTick();
+            this.slideToTimer(t.id);
+          }
+        });
+
+        track.appendChild(slide);
+      });
+      this._carouselTimersKey = currentTimerKeys;
+    } else {
+      // High-performance in-place updates during live countdown
+      existingSlides.forEach((slide, idx) => {
+        const t = this.timers[idx];
+        const progressFraction = Math.max(0, Math.min(1, t.remaining / (t.total || 1)));
+        const offset = (this.CIRCUMFERENCE * (1 - progressFraction)).toFixed(2);
+        const color = t.color || '#ff9f0a';
+
+        const digitsEl = slide.querySelector('.timer-digits');
+        if (digitsEl) digitsEl.textContent = this.formatTime(t.remaining);
+
+        const progressEl = slide.querySelector('.ring-progress');
+        if (progressEl) {
+          progressEl.style.strokeDashoffset = offset;
+          progressEl.style.stroke = color;
+          progressEl.style.filter = `drop-shadow(0 0 12px ${color}88)`;
+        }
+
+        const endTimeEl = slide.querySelector('.end-time');
+        if (endTimeEl) {
+          if (t.status === 'running') {
+            const endDate = new Date(Date.now() + t.remaining * 1000);
+            endTimeEl.textContent = `Ends at ${endDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+          } else if (t.status === 'paused') {
+            endTimeEl.textContent = 'Paused';
+          } else if (t.status === 'completed') {
+            endTimeEl.textContent = '🔔 Complete!';
+          } else {
+            endTimeEl.textContent = `Total: ${this.formatTime(t.total)}`;
+          }
+        }
+
+        const playBtn = slide.querySelector('.btn-card-toggle-play');
+        if (playBtn) {
+          const isRunning = t.status === 'running';
+          const isCompleted = t.status === 'completed';
+          playBtn.className = isCompleted ? 'btn-circle btn-primary-action completed btn-card-toggle-play'
+            : (isRunning ? 'btn-circle btn-primary-action btn-card-toggle-play' : 'btn-circle btn-primary-action paused btn-card-toggle-play');
+          playBtn.style.background = isRunning ? color : '';
+          playBtn.innerHTML = isRunning
+            ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
+            : (isCompleted
+                ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>'
+                : '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>'
+              );
+        }
+
+        const pomoBadge = slide.querySelector('.pomo-cycle-badge');
+        if (pomoBadge) {
+          if (t.isPomodoro) {
+            pomoBadge.style.display = 'inline-block';
+            const phaseName = t.pomoPhase === 'focus' ? 'Focus' : (t.pomoPhase === 'short_break' ? 'Short Break' : 'Long Break');
+            pomoBadge.textContent = `🔁 Cycle ${t.pomoCycle || 1}/4 • ${phaseName}`;
+            pomoBadge.style.borderColor = color;
+            pomoBadge.style.color = color;
+          } else {
+            pomoBadge.style.display = 'none';
+          }
+        }
+      });
+    }
+
+    let activeIndex = this.timers.findIndex(t => t.id === this.primaryTimerId);
+    if (activeIndex === -1) {
+      activeIndex = 0;
+      if (this.timers.length > 0) this.primaryTimerId = this.timers[0].id;
+    }
+
+    const slides = track.querySelectorAll('.hero-carousel-slide');
+    slides.forEach((slide, idx) => {
+      slide.classList.toggle('active', idx === activeIndex);
+      slide.classList.toggle('adjacent-prev', idx === activeIndex - 1);
+      slide.classList.toggle('adjacent-next', idx === activeIndex + 1);
+      slide.classList.toggle('hidden-far', Math.abs(idx - activeIndex) > 1);
+    });
+
+    if (!this.isCarouselDragging) {
+      const viewportWidth = viewport.clientWidth || 376;
+      const slideWidth = 324;
+      const gap = 16;
+      const targetX = (viewportWidth / 2) - (activeIndex * (slideWidth + gap) + (slideWidth / 2));
+      track.style.transform = `translateX(${targetX}px)`;
+    }
+
+    if (this.dom.btnCarouselPrev) {
+      this.dom.btnCarouselPrev.style.display = activeIndex > 0 ? 'flex' : 'none';
+    }
+    if (this.dom.btnCarouselNext) {
+      this.dom.btnCarouselNext.style.display = activeIndex < this.timers.length - 1 ? 'flex' : 'none';
+    }
+  }
+
+  setupCarouselDraggable() {
+    const viewport = this.dom.heroCarouselViewport;
+    const track = this.dom.heroCarouselTrack;
+    if (!viewport || !track) return;
+
+    let isDown = false;
+    let startX = 0;
+    let currentX = 0;
+    let dragDistance = 0;
+    this.isCarouselDragging = false;
+
+    const onStart = (clientX) => {
+      isDown = true;
+      startX = clientX;
+      currentX = clientX;
+      dragDistance = 0;
+      this.isCarouselDragging = false;
+      viewport.classList.add('dragging');
+      track.style.transition = 'none';
+    };
+
+    const onMove = (clientX) => {
+      if (!isDown) return;
+      currentX = clientX;
+      const deltaX = currentX - startX;
+      dragDistance = Math.abs(deltaX);
+      if (dragDistance > 6) {
+        this.isCarouselDragging = true;
+      }
+
+      const activeIndex = this.timers.findIndex(t => t.id === this.primaryTimerId);
+      const viewportWidth = viewport.clientWidth || 376;
+      const slideWidth = 324;
+      const gap = 16;
+      const baseX = (viewportWidth / 2) - (activeIndex * (slideWidth + gap) + (slideWidth / 2));
+
+      let effectiveDelta = deltaX;
+      if ((activeIndex === 0 && deltaX > 0) || (activeIndex === this.timers.length - 1 && deltaX < 0)) {
+        effectiveDelta = deltaX * 0.3;
+      }
+
+      track.style.transform = `translateX(${baseX + effectiveDelta}px)`;
+    };
+
+    const onEnd = () => {
+      if (!isDown) return;
+      isDown = false;
+      viewport.classList.remove('dragging');
+      track.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+
+      const deltaX = currentX - startX;
+      const activeIndex = this.timers.findIndex(t => t.id === this.primaryTimerId);
+
+      setTimeout(() => {
+        this.isCarouselDragging = false;
+      }, 80);
+
+      const threshold = 45;
+      if (deltaX < -threshold && activeIndex < this.timers.length - 1) {
+        window.soundEngine.playTick();
+        this.slideToTimer(this.timers[activeIndex + 1].id);
+      } else if (deltaX > threshold && activeIndex > 0) {
+        window.soundEngine.playTick();
+        this.slideToTimer(this.timers[activeIndex - 1].id);
+      } else {
+        this.slideToTimer(this.primaryTimerId);
+      }
+    };
+
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button') || e.target.closest('.timer-label-tag')) return;
+      onStart(e.clientX);
+    });
+    window.addEventListener('mousemove', (e) => onMove(e.clientX));
+    window.addEventListener('mouseup', () => onEnd());
+
+    viewport.addEventListener('touchstart', (e) => {
+      if (e.target.closest('button') || e.target.closest('.timer-label-tag')) return;
+      if (e.touches && e.touches[0]) onStart(e.touches[0].clientX);
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches && e.touches[0]) onMove(e.touches[0].clientX);
+    }, { passive: true });
+    window.addEventListener('touchend', () => onEnd());
+
+    let wheelTimeout = null;
+    viewport.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaX) < 25 && Math.abs(e.deltaY) < 35) return;
+      if (wheelTimeout) return;
+      const activeIndex = this.timers.findIndex(t => t.id === this.primaryTimerId);
+      const isNext = e.deltaX > 20 || (e.shiftKey && e.deltaY > 20);
+      const isPrev = e.deltaX < -20 || (e.shiftKey && e.deltaY < -20);
+
+      if (isNext && activeIndex < this.timers.length - 1) {
+        window.soundEngine.playTick();
+        this.slideToTimer(this.timers[activeIndex + 1].id);
+        wheelTimeout = setTimeout(() => { wheelTimeout = null; }, 320);
+      } else if (isPrev && activeIndex > 0) {
+        window.soundEngine.playTick();
+        this.slideToTimer(this.timers[activeIndex - 1].id);
+        wheelTimeout = setTimeout(() => { wheelTimeout = null; }, 320);
+      }
+    }, { passive: true });
+  }
+
   renderHeroStackTabs() {
     if (!this.dom.heroStackTabs) return;
 
@@ -1805,60 +2227,8 @@ class TaskTimerApp {
       this.dom.islandIcon.classList.remove('pulse');
     }
 
-    // 2. Hero Primary Timer Display
-    if (primary) {
-      this.dom.heroTimerLabel.textContent = primary.label;
-      this.dom.heroCategoryIcon.textContent = primary.category || '⏱️';
-      this.dom.heroTimerDigits.textContent = this.formatTime(primary.remaining);
-
-      // Pomodoro Cycle Indicator
-      if (this.dom.heroPomoBadge) {
-        if (primary.isPomodoro) {
-          this.dom.heroPomoBadge.style.display = 'inline-block';
-          const phaseName = primary.pomoPhase === 'focus' ? 'Focus' : (primary.pomoPhase === 'short_break' ? 'Short Break' : 'Long Break');
-          this.dom.heroPomoBadge.textContent = `🔁 Cycle ${primary.pomoCycle || 1}/4 • ${phaseName}`;
-          this.dom.heroPomoBadge.style.borderColor = primary.color || '#ff9f0a';
-          this.dom.heroPomoBadge.style.color = primary.color || '#ff9f0a';
-        } else {
-          this.dom.heroPomoBadge.style.display = 'none';
-        }
-      }
-
-      // Radial Ring Stroke Dashoffset calculation
-      const progressFraction = Math.max(0, Math.min(1, primary.remaining / (primary.total || 1)));
-      // Dashoffset = Circumference * (1 - fraction)
-      const offset = this.CIRCUMFERENCE * (1 - progressFraction);
-      this.dom.heroProgressRing.style.strokeDashoffset = offset;
-      this.dom.heroProgressRing.style.stroke = primary.color || '#ff9f0a';
-
-      // End time string
-      if (primary.status === 'running') {
-        const endDate = new Date(Date.now() + primary.remaining * 1000);
-        this.dom.heroEndTime.textContent = `Ends at ${endDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
-      } else if (primary.status === 'paused') {
-        this.dom.heroEndTime.textContent = 'Paused';
-      } else if (primary.status === 'completed') {
-        this.dom.heroEndTime.textContent = '🔔 Complete!';
-      } else {
-        this.dom.heroEndTime.textContent = `Total: ${this.formatTime(primary.total)}`;
-      }
-
-      // Hero Play/Pause Button Icon and Style
-      this.dom.btnHeroTogglePlay.className = 'btn-circle btn-primary-action';
-      if (primary.status === 'running') {
-        this.dom.btnHeroTogglePlay.style.background = primary.color || '#ff9f0a';
-        this.dom.heroPlayIcon.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
-      } else if (primary.status === 'paused') {
-        this.dom.btnHeroTogglePlay.classList.add('paused');
-        this.dom.heroPlayIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
-      } else if (primary.status === 'completed') {
-        this.dom.btnHeroTogglePlay.classList.add('completed');
-        this.dom.heroPlayIcon.innerHTML = '<rect x="6" y="6" width="12" height="12" rx="2"></rect>';
-      } else {
-        this.dom.btnHeroTogglePlay.style.background = primary.color || '#ff9f0a';
-        this.dom.heroPlayIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
-      }
-    }
+    // 2. Hero Carousel Deck (Swipeable timer cards with stacks on left and right)
+    this.renderHeroCarousel();
 
     // 2. Hero Stack Switcher Tabs
     this.renderHeroStackTabs();
@@ -2074,9 +2444,7 @@ class TaskTimerApp {
       card.addEventListener('click', (e) => {
         if (e.target.closest('.timer-card-actions')) return;
         window.soundEngine.playTick();
-        this.primaryTimerId = timer.id;
-        this.render();
-        this.syncWithOsTaskbar();
+        this.slideToTimer(timer.id);
       });
 
       // Double-click to Edit Timer
