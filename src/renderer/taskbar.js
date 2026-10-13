@@ -61,11 +61,15 @@ class TaskbarPillApp {
       });
     }
 
-    // Play / Pause Toggle
+    // Play / Pause / Stop Alarm Toggle
     if (this.dom.btnTaskbarPillToggle) {
       this.dom.btnTaskbarPillToggle.addEventListener('click', (e) => {
         e.stopPropagation();
-        window.timerAPI?.sendTaskbarAction('toggle-play');
+        if (this.currentData?.primaryTimer?.status === 'completed') {
+          window.timerAPI?.sendTaskbarAction('silence-alarm');
+        } else {
+          window.timerAPI?.sendTaskbarAction('toggle-play');
+        }
       });
     }
 
@@ -182,22 +186,32 @@ class TaskbarPillApp {
     const { primaryTimer, timers, activeCount } = this.currentData;
 
     if (primaryTimer) {
-      const formatted = this.formatTime(primaryTimer.remaining);
-      const color = primaryTimer.color || '#ff9f0a';
+      const isCompleted = primaryTimer.status === 'completed';
+      const formatted = isCompleted ? 'DONE' : this.formatTime(primaryTimer.remaining);
+      const color = isCompleted ? '#ff453a' : (primaryTimer.color || '#ff9f0a');
 
       this.dom.taskbarPillDigits.textContent = formatted;
       this.dom.taskbarPillDigits.style.color = color;
-      this.dom.taskbarPillLabel.textContent = primaryTimer.label || 'Timer';
+      this.dom.taskbarPillLabel.textContent = isCompleted ? '🔔 Alarm!' : (primaryTimer.label || 'Timer');
 
       if (this.dom.taskbarPillProgress) {
         this.dom.taskbarPillProgress.style.stroke = color;
-        const frac = Math.max(0, Math.min(1, primaryTimer.remaining / (primaryTimer.total || 1)));
+        const frac = isCompleted ? 1 : Math.max(0, Math.min(1, primaryTimer.remaining / (primaryTimer.total || 1)));
         this.dom.taskbarPillProgress.style.strokeDashoffset = this.CIRCUMFERENCE * (1 - frac);
       }
 
       const isRunning = primaryTimer.status === 'running';
-      this.dom.btnTaskbarPillToggle.textContent = isRunning ? '⏸' : '▶';
-      this.dom.btnTaskbarPillToggle.title = isRunning ? 'Pause Timer' : 'Start Timer';
+      if (isCompleted) {
+        this.dom.btnTaskbarPillToggle.textContent = '■';
+        this.dom.btnTaskbarPillToggle.title = 'Stop Alarm';
+        this.dom.btnTaskbarPillToggle.classList.add('alarm-ringing');
+        this.dom.taskbarPill?.classList.add('alarm-ringing');
+      } else {
+        this.dom.btnTaskbarPillToggle.textContent = isRunning ? '⏸' : '▶';
+        this.dom.btnTaskbarPillToggle.title = isRunning ? 'Pause Timer' : 'Start Timer';
+        this.dom.btnTaskbarPillToggle.classList.remove('alarm-ringing');
+        this.dom.taskbarPill?.classList.remove('alarm-ringing');
+      }
 
       // Multiple Timers Switcher (‹ 1/3 ›)
       const allTimers = Array.isArray(timers) ? timers : [primaryTimer];
@@ -219,6 +233,8 @@ class TaskbarPillApp {
       this.dom.taskbarPillDigits.textContent = '00:00';
       this.dom.taskbarPillLabel.textContent = 'Ready';
       this.dom.btnTaskbarPillToggle.textContent = '▶';
+      this.dom.btnTaskbarPillToggle.classList.remove('alarm-ringing');
+      this.dom.taskbarPill?.classList.remove('alarm-ringing');
       this.dom.pillStackSwitcher.style.display = 'none';
     }
   }

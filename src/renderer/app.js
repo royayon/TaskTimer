@@ -210,6 +210,13 @@ class TaskTimerApp {
       allTimersCount: document.getElementById('allTimersCount'),
       timersListContainer: document.getElementById('timersListContainer'),
 
+      // Alarm Ringing Banner
+      alarmRingingBanner: document.getElementById('alarmRingingBanner'),
+      alarmBannerTitle: document.getElementById('alarmBannerTitle'),
+      alarmBannerSub: document.getElementById('alarmBannerSub'),
+      btnAlarmBannerSnooze: document.getElementById('btnAlarmBannerSnooze'),
+      btnAlarmBannerStop: document.getElementById('btnAlarmBannerStop'),
+
       // Add Modal & Footer Actions
       chipOpenTargetTimer: document.getElementById('chipOpenTargetTimer'),
       btnDockTaskbarBottom: document.getElementById('btnDockTaskbarBottom'),
@@ -338,11 +345,39 @@ class TaskTimerApp {
     this.dom.btnToggleStandby.addEventListener('click', () => this.toggleStandbyMode());
     this.dom.btnPinWindow.addEventListener('click', () => this.toggleAlwaysOnTop());
     this.dom.btnMinimize.addEventListener('click', () => window.timerAPI.minimizeWindow());
-    this.dom.btnClose.addEventListener('click', () => window.timerAPI.closeWindow());
+    this.dom.btnClose.addEventListener('click', () => {
+      this.silenceAllAlarms();
+      window.timerAPI.closeWindow();
+    });
 
     // Mini Widget buttons
     this.dom.btnRestoreFromMini.addEventListener('click', () => this.toggleMiniMode(false));
-    this.dom.btnCloseMini.addEventListener('click', () => window.timerAPI.hideToTray());
+    this.dom.btnCloseMini.addEventListener('click', () => {
+      this.silenceAllAlarms();
+      window.timerAPI.hideToTray();
+    });
+
+    // Alarm Ringing Banner Buttons & State Callback
+    if (this.dom.btnAlarmBannerStop) {
+      this.dom.btnAlarmBannerStop.addEventListener('click', () => {
+        window.soundEngine?.playTick();
+        this.silenceAllAlarms();
+      });
+    }
+
+    if (this.dom.btnAlarmBannerSnooze) {
+      this.dom.btnAlarmBannerSnooze.addEventListener('click', () => {
+        window.soundEngine?.playTick();
+        this.snoozeTimerAlarm(this.ringingTimerId || this.primaryTimerId, 300);
+      });
+    }
+
+    if (window.soundEngine) {
+      window.soundEngine.onRingingStateChange = (isRinging, timerId) => {
+        this.ringingTimerId = isRinging ? timerId : null;
+        this.updateAlarmBanner();
+      };
+    }
 
     // Standby buttons
     this.dom.btnExitStandby.addEventListener('click', () => this.toggleStandbyMode(false));
@@ -771,6 +806,16 @@ class TaskTimerApp {
 
     // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
+      // If alarm is buzzing or any timer is in completed status, Space / Enter / Escape immediately silences it!
+      const hasCompleted = this.timers && this.timers.some(t => t.status === 'completed');
+      if (window.soundEngine?.isRinging || hasCompleted) {
+        if (e.key === 'Escape' || e.code === 'Space' || e.code === 'Enter') {
+          e.preventDefault();
+          this.silenceAllAlarms();
+          return;
+        }
+      }
+
       if (e.key === 'Escape') {
         if (this.isStandbyMode) {
           this.toggleStandbyMode(false);
@@ -785,6 +830,11 @@ class TaskTimerApp {
         e.preventDefault();
         this.toggleTimerPlay(this.primaryTimerId);
       }
+    });
+
+    // Before unload silence safety
+    window.addEventListener('beforeunload', () => {
+      window.soundEngine?.stopRinging();
     });
 
     // Setup smooth draggable & scrollable carousel for stack tabs
@@ -882,9 +932,20 @@ class TaskTimerApp {
     // Actions sent from floating taskbar pill, Windows taskbar buttons, or tray menu
     window.timerAPI.onTimerAction((action, payload) => {
       switch (action) {
+        case 'silence-alarm':
+        case 'stop-alarm':
+          this.silenceAllAlarms();
+          break;
+        case 'snooze-5m':
+          this.snoozeTimerAlarm(this.ringingTimerId || this.primaryTimerId, 300);
+          break;
         case 'toggle-play':
         case 'toggle-primary':
-          this.toggleTimerPlay(this.primaryTimerId);
+          if (this.timers && this.timers.some(t => t.id === this.primaryTimerId && t.status === 'completed')) {
+            this.stopTimerAlarm(this.primaryTimerId);
+          } else {
+            this.toggleTimerPlay(this.primaryTimerId);
+          }
           break;
         case 'add-1m':
           this.addTimeToPrimary(60);
@@ -941,6 +1002,13 @@ class TaskTimerApp {
       this.recalculateWallClockTime();
       this.render();
     });
+
+    // Alarm silence from OS / Window close / Tray
+    if (window.timerAPI.onAlarmSilence) {
+      window.timerAPI.onAlarmSilence(() => {
+        this.silenceAllAlarms();
+      });
+    }
   }
 
   // -------------------------------------------------------------
@@ -963,7 +1031,9 @@ class TaskTimerApp {
 
         if (diff <= 0) {
           // Timer finished!
-          window.soundEngine.startRinging(t.sound || 'radar');
+          this.ringingTimerId = t.id;
+          window.soundEngine.startRinging(t.sound || 'radar', t.id);
+          this.updateAlarmBanner();
           if (window.timerAPI) {
             window.timerAPI.notifyTimerComplete(t);
           }
@@ -1046,7 +1116,9 @@ class TaskTimerApp {
         if (diff <= 0) {
           t.remaining = 0;
           t.status = 'completed';
-          window.soundEngine.startRinging(t.sound || 'radar');
+          this.ringingTimerId = t.id;
+          window.soundEngine.startRinging(t.sound || 'radar', t.id);
+          this.updateAlarmBanner();
           if (window.timerAPI) window.timerAPI.notifyTimerComplete(t);
         } else {
           t.remaining = diff;
@@ -1163,8 +1235,88 @@ class TaskTimerApp {
   }
 
   // -------------------------------------------------------------
-  // Timer Operations
+  // Timer Operations & Alarm Dismissal
   // -------------------------------------------------------------
+  stopTimerAlarm(timerId = null) {
+    window.soundEngine?.stopRinging();
+    let target = timerId ? this.timers.find(t => t.id === timerId) : null;
+    if (!target) {
+      target = this.timers.find(t => t.status === 'completed');
+    }
+    if (target) {
+      target.status = 'idle';
+      target.remaining = target.total;
+      target.endTimestamp = null;
+    }
+    this.ringingTimerId = null;
+    this.saveTimers();
+    this.render();
+    this.syncWithOsTaskbar();
+    this.updateAlarmBanner();
+  }
+
+  snoozeTimerAlarm(timerId = null, snoozeSeconds = 300) {
+    window.soundEngine?.stopRinging();
+    let target = timerId ? this.timers.find(t => t.id === timerId) : null;
+    if (!target) {
+      target = this.timers.find(t => t.status === 'completed');
+    }
+    if (target) {
+      target.remaining = snoozeSeconds;
+      target.total = Math.max(target.total, snoozeSeconds);
+      target.status = 'running';
+      target.endTimestamp = Date.now() + (snoozeSeconds * 1000);
+      this.primaryTimerId = target.id;
+    }
+    this.ringingTimerId = null;
+    this.saveTimers();
+    this.render();
+    this.syncWithOsTaskbar();
+    this.updateAlarmBanner();
+  }
+
+  silenceAllAlarms() {
+    window.soundEngine?.stopRinging();
+    let anyChanged = false;
+    this.timers.forEach(t => {
+      if (t.status === 'completed') {
+        t.status = 'idle';
+        t.remaining = t.total;
+        t.endTimestamp = null;
+        anyChanged = true;
+      }
+    });
+    this.ringingTimerId = null;
+    if (anyChanged) {
+      this.saveTimers();
+      this.render();
+      this.syncWithOsTaskbar();
+    }
+    this.updateAlarmBanner();
+  }
+
+  updateAlarmBanner() {
+    if (!this.dom.alarmRingingBanner) return;
+    const completedTimers = this.timers.filter(t => t.status === 'completed');
+    const isRinging = window.soundEngine?.isRinging;
+
+    if (completedTimers.length > 0 || isRinging) {
+      const activeAlarmTimer = (this.ringingTimerId && this.timers.find(t => t.id === this.ringingTimerId)) || completedTimers[0] || this.getPrimaryTimer();
+      const label = activeAlarmTimer?.label || 'Timer';
+      if (this.dom.alarmBannerTitle) {
+        this.dom.alarmBannerTitle.textContent = `🔔 "${label}" Finished!`;
+      }
+      if (this.dom.alarmBannerSub) {
+        this.dom.alarmBannerSub.textContent = completedTimers.length > 1
+          ? `+${completedTimers.length - 1} other alarm • Tap Stop, Snooze, or press Space/Esc`
+          : 'Tap Stop Alarm, Snooze +5m, or press Space/Esc to silence';
+      }
+      this.dom.alarmRingingBanner.style.display = 'flex';
+    } else {
+      this.dom.alarmRingingBanner.style.display = 'none';
+    }
+  }
+
   toggleTimerPlay(timerId) {
     const timer = this.timers.find(t => t.id === timerId);
     if (!timer) return;
@@ -1190,6 +1342,7 @@ class TaskTimerApp {
     this.saveTimers();
     this.render();
     this.syncWithOsTaskbar();
+    this.updateAlarmBanner();
   }
 
   resetTimer(timerId) {
@@ -1204,6 +1357,7 @@ class TaskTimerApp {
     this.saveTimers();
     this.render();
     this.syncWithOsTaskbar();
+    this.updateAlarmBanner();
   }
 
   addTimeToTimer(timerId, seconds = 60) {
@@ -1868,13 +2022,44 @@ class TaskTimerApp {
     const playClass = isCompleted
       ? 'btn-circle btn-primary-action completed btn-card-toggle-play'
       : (isRunning ? 'btn-circle btn-primary-action btn-card-toggle-play' : 'btn-circle btn-primary-action paused btn-card-toggle-play');
-    const playStyle = isRunning ? `background: ${color};` : '';
+    const playStyle = isRunning ? `background: ${color};` : (isCompleted ? 'background: #ff453a;' : '');
     const playSvg = isRunning
       ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
       : (isCompleted
-          ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>'
+          ? '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5"></rect></svg>'
           : '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>'
         );
+    const playTitle = isCompleted ? 'Stop Alarm (Dismiss)' : (isRunning ? 'Pause' : 'Start');
+
+    const controlsHtml = isCompleted
+      ? `
+        <div class="timer-controls">
+          <button class="btn-circle btn-secondary btn-card-snooze" title="Snooze for 5 minutes">+5m</button>
+          <button class="${playClass}" style="${playStyle}" title="${playTitle}">
+            ${playSvg}
+          </button>
+          <button class="btn-circle btn-secondary btn-card-reset" title="Reset Timer">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="1 4 1 10 7 10"></polyline>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+          </button>
+        </div>
+      `
+      : `
+        <div class="timer-controls">
+          <button class="btn-circle btn-secondary btn-card-add-1m" title="Add 1 Minute">+1m</button>
+          <button class="${playClass}" style="${playStyle}" title="${playTitle}">
+            ${playSvg}
+          </button>
+          <button class="btn-circle btn-secondary btn-card-reset" title="Reset Timer">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="1 4 1 10 7 10"></polyline>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+          </button>
+        </div>
+      `;
 
     return `
       <section class="hero-timer-card">
@@ -1905,18 +2090,7 @@ class TaskTimerApp {
           </div>
         </div>
 
-        <div class="timer-controls">
-          <button class="btn-circle btn-secondary btn-card-add-1m" title="Add 1 Minute">+1m</button>
-          <button class="${playClass}" style="${playStyle}" title="${isRunning ? 'Pause' : 'Start'}">
-            ${playSvg}
-          </button>
-          <button class="btn-circle btn-secondary btn-card-reset" title="Reset Timer">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="1 4 1 10 7 10"></polyline>
-              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-            </svg>
-          </button>
-        </div>
+        ${controlsHtml}
       </section>
     `;
   }
@@ -1940,7 +2114,7 @@ class TaskTimerApp {
       return;
     }
 
-    const currentTimerKeys = this.timers.map(t => `${t.id}-${t.label}-${t.total}-${t.color}-${t.category}`).join('|');
+    const currentTimerKeys = this.timers.map(t => `${t.id}-${t.label}-${t.total}-${t.color}-${t.category}-${t.status}`).join('|');
     const existingSlides = track.querySelectorAll('.hero-carousel-slide');
 
     let needsFullRebuild = false;
@@ -1972,12 +2146,25 @@ class TaskTimerApp {
           });
         }
 
+        const btnSnooze = slide.querySelector('.btn-card-snooze');
+        if (btnSnooze) {
+          btnSnooze.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.soundEngine.playTick();
+            this.snoozeTimerAlarm(t.id, 300);
+          });
+        }
+
         const btnPlay = slide.querySelector('.btn-card-toggle-play');
         if (btnPlay) {
           btnPlay.addEventListener('click', (e) => {
             e.stopPropagation();
             window.soundEngine.playTick();
-            this.toggleTimerPlay(t.id);
+            if (t.status === 'completed') {
+              this.stopTimerAlarm(t.id);
+            } else {
+              this.toggleTimerPlay(t.id);
+            }
           });
         }
 
@@ -2048,11 +2235,12 @@ class TaskTimerApp {
           const isCompleted = t.status === 'completed';
           playBtn.className = isCompleted ? 'btn-circle btn-primary-action completed btn-card-toggle-play'
             : (isRunning ? 'btn-circle btn-primary-action btn-card-toggle-play' : 'btn-circle btn-primary-action paused btn-card-toggle-play');
-          playBtn.style.background = isRunning ? color : '';
+          playBtn.style.background = isRunning ? color : (isCompleted ? '#ff453a' : '');
+          playBtn.title = isCompleted ? 'Stop Alarm (Dismiss)' : (isRunning ? 'Pause' : 'Start');
           playBtn.innerHTML = isRunning
             ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
             : (isCompleted
-                ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>'
+                ? '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5"></rect></svg>'
                 : '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>'
               );
         }
@@ -2354,7 +2542,13 @@ class TaskTimerApp {
         this.dom.taskbarPillProgress.style.strokeDashoffset = pillCirc * (1 - frac);
       }
       if (this.dom.btnTaskbarPillToggle) {
-        this.dom.btnTaskbarPillToggle.textContent = primary.status === 'running' ? '⏸' : '▶';
+        if (primary.status === 'completed') {
+          this.dom.btnTaskbarPillToggle.textContent = '■';
+          this.dom.btnTaskbarPillToggle.title = 'Stop Alarm';
+        } else {
+          this.dom.btnTaskbarPillToggle.textContent = primary.status === 'running' ? '⏸' : '▶';
+          this.dom.btnTaskbarPillToggle.title = primary.status === 'running' ? 'Pause' : 'Start';
+        }
       }
 
       // Active Timers Stack Counter for Switcher (< 1/3 >)
@@ -2374,6 +2568,9 @@ class TaskTimerApp {
         }
       }
     }
+
+    // 7. Synchronize Alarm Ringing Banner state
+    this.updateAlarmBanner();
   }
 
   renderTimersList() {
@@ -2409,7 +2606,8 @@ class TaskTimerApp {
           const card = existingCards[idx];
           const timer = this.timers[idx];
           const isPrimary = timer.id === this.primaryTimerId;
-          const targetClass = `timer-card ${isPrimary ? 'active-primary' : ''}`;
+          const isComp = timer.status === 'completed';
+          const targetClass = `timer-card ${isPrimary ? 'active-primary' : ''} ${isComp ? 'completed' : ''}`;
           if (card.className !== targetClass) card.className = targetClass;
 
           let refs = card._refs;
@@ -2431,33 +2629,44 @@ class TaskTimerApp {
           if (refs.iconEl && refs.iconEl.textContent !== (timer.category || '⏱️')) {
             refs.iconEl.textContent = timer.category || '⏱️';
           }
-          const formatted = this.formatTime(timer.remaining);
+          const formatted = isComp ? 'DONE' : this.formatTime(timer.remaining);
           if (refs.timeEl && refs.timeEl.textContent !== formatted) {
             refs.timeEl.textContent = formatted;
-            refs.timeEl.style.color = timer.color || '#ff9f0a';
+            refs.timeEl.style.color = isComp ? '#ff453a' : (timer.color || '#ff9f0a');
           }
-          const upStatus = timer.status.toUpperCase();
+          const upStatus = isComp ? '🔔 COMPLETE' : timer.status.toUpperCase();
           if (refs.statusEl && refs.statusEl.textContent !== upStatus) {
             refs.statusEl.textContent = upStatus;
+            refs.statusEl.style.color = isComp ? '#ff453a' : '';
           }
           if (refs.progressCircle) {
-            const frac = Math.max(0, Math.min(1, timer.remaining / (timer.total || 1)));
+            const frac = isComp ? 1 : Math.max(0, Math.min(1, timer.remaining / (timer.total || 1)));
             const newOffset = (miniCircumference * (1 - frac)).toFixed(2);
             if (refs.progressCircle.getAttribute('data-offset') !== newOffset) {
               refs.progressCircle.setAttribute('data-offset', newOffset);
               refs.progressCircle.style.strokeDashoffset = newOffset;
-              refs.progressCircle.style.stroke = timer.color || '#ff9f0a';
+              refs.progressCircle.style.stroke = isComp ? '#ff453a' : (timer.color || '#ff9f0a');
             }
           }
           if (refs.toggleBtn) {
             const isRun = timer.status === 'running';
-            const curState = refs.toggleBtn.getAttribute('data-running');
-            if (curState !== (isRun ? 'true' : 'false')) {
-              refs.toggleBtn.setAttribute('data-running', isRun ? 'true' : 'false');
-              refs.toggleBtn.title = isRun ? 'Pause' : 'Start';
-              refs.toggleBtn.innerHTML = isRun
-                ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
-                : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+            const curState = refs.toggleBtn.getAttribute('data-state');
+            const targetState = isComp ? 'completed' : (isRun ? 'running' : 'paused');
+            if (curState !== targetState) {
+              refs.toggleBtn.setAttribute('data-state', targetState);
+              if (isComp) {
+                refs.toggleBtn.title = 'Stop Alarm';
+                refs.toggleBtn.className = 'card-action-btn alarm-stop-btn';
+                refs.toggleBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>';
+              } else if (isRun) {
+                refs.toggleBtn.title = 'Pause';
+                refs.toggleBtn.className = 'card-action-btn';
+                refs.toggleBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+              } else {
+                refs.toggleBtn.title = 'Start';
+                refs.toggleBtn.className = 'card-action-btn';
+                refs.toggleBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+              }
             }
           }
         }
@@ -2472,8 +2681,9 @@ class TaskTimerApp {
       const progressFraction = Math.max(0, Math.min(1, timer.remaining / (timer.total || 1)));
       const miniOffset = miniCircumference * (1 - progressFraction);
 
+      const isComp = timer.status === 'completed';
       const card = document.createElement('div');
-      card.className = `timer-card ${isPrimary ? 'active-primary' : ''}`;
+      card.className = `timer-card ${isPrimary ? 'active-primary' : ''} ${isComp ? 'completed' : ''}`;
       card.setAttribute('data-timer-id', timer.id);
       card.setAttribute('draggable', 'true');
 
@@ -2486,27 +2696,30 @@ class TaskTimerApp {
               <circle class="mini-ring-progress" cx="22" cy="22" r="18"
                       stroke-dasharray="${miniCircumference}"
                       stroke-dashoffset="${miniOffset}"
-                      style="stroke: ${timer.color || '#ff9f0a'};"></circle>
+                      style="stroke: ${isComp ? '#ff453a' : (timer.color || '#ff9f0a')};"></circle>
             </svg>
             <div class="mini-ring-icon">${timer.category || '⏱️'}</div>
           </div>
           <div class="timer-info">
             <div class="timer-title">${timer.label}</div>
             <div class="timer-status-row">
-              <span class="timer-remaining" style="color: ${timer.color || '#ff9f0a'};">
-                ${this.formatTime(timer.remaining)}
+              <span class="timer-remaining" style="color: ${isComp ? '#ff453a' : (timer.color || '#ff9f0a')};">
+                ${isComp ? 'DONE' : this.formatTime(timer.remaining)}
               </span>
               <span>•</span>
-              <span class="timer-status-text">${timer.status.toUpperCase()}</span>
+              <span class="timer-status-text" style="${isComp ? 'color: #ff453a;' : ''}">${isComp ? '🔔 COMPLETE' : timer.status.toUpperCase()}</span>
             </div>
           </div>
         </div>
 
         <div class="timer-card-actions">
-          <button class="card-action-btn" data-action="toggle" data-id="${timer.id}" title="${timer.status === 'running' ? 'Pause' : 'Start'}">
-            ${timer.status === 'running'
-              ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
-              : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>'
+          <button class="card-action-btn ${isComp ? 'alarm-stop-btn' : ''}" data-action="toggle" data-id="${timer.id}" data-state="${timer.status}" title="${isComp ? 'Stop Alarm' : (timer.status === 'running' ? 'Pause' : 'Start')}">
+            ${isComp
+              ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>'
+              : (timer.status === 'running'
+                ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
+                : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>'
+              )
             }
           </button>
           <button class="card-action-btn" data-action="add1m" data-id="${timer.id}" title="+1 Minute">
@@ -2634,7 +2847,11 @@ class TaskTimerApp {
       card.querySelector('[data-action="toggle"]').addEventListener('click', (e) => {
         e.stopPropagation();
         window.soundEngine.playTick();
-        this.toggleTimerPlay(timer.id);
+        if (timer.status === 'completed') {
+          this.stopTimerAlarm(timer.id);
+        } else {
+          this.toggleTimerPlay(timer.id);
+        }
       });
 
       card.querySelector('[data-action="add1m"]').addEventListener('click', (e) => {
@@ -2699,9 +2916,10 @@ class TaskTimerApp {
             refs.digitsEl.style.color = timer.color || '#ff9f0a';
           }
           if (refs.toggleBtn) {
-            const btnChar = timer.status === 'running' ? '⏸' : '▶';
+            const btnChar = timer.status === 'completed' ? '■' : (timer.status === 'running' ? '⏸' : '▶');
             if (refs.toggleBtn.textContent !== btnChar) {
               refs.toggleBtn.textContent = btnChar;
+              refs.toggleBtn.style.color = timer.status === 'completed' ? '#ff453a' : '';
             }
           }
         }
@@ -2711,6 +2929,7 @@ class TaskTimerApp {
 
     this.dom.miniTimersList.innerHTML = '';
     this.timers.forEach(timer => {
+      const isComp = timer.status === 'completed';
       const item = document.createElement('div');
       item.className = 'mini-timer-item';
       item.setAttribute('data-id', timer.id);
@@ -2718,13 +2937,13 @@ class TaskTimerApp {
         <div class="mini-item-left">
           <span>${timer.category || '⏱️'}</span>
           <span class="mini-item-name">${timer.label}</span>
-          <span class="mini-item-digits" style="color: ${timer.color || '#ff9f0a'};">
-            ${this.formatTime(timer.remaining)}
+          <span class="mini-item-digits" style="color: ${isComp ? '#ff453a' : (timer.color || '#ff9f0a')};">
+            ${isComp ? 'DONE' : this.formatTime(timer.remaining)}
           </span>
         </div>
         <div class="mini-item-actions">
-          <button class="mini-btn" data-action="toggle" data-id="${timer.id}">
-            ${timer.status === 'running' ? '⏸' : '▶'}
+          <button class="mini-btn ${isComp ? 'alarm-stop-btn' : ''}" data-action="toggle" data-id="${timer.id}" style="${isComp ? 'color: #ff453a;' : ''}">
+            ${isComp ? '■' : (timer.status === 'running' ? '⏸' : '▶')}
           </button>
           <button class="mini-btn" data-action="delete" data-id="${timer.id}" style="color: #ff6961;">
             ✕
@@ -2740,7 +2959,11 @@ class TaskTimerApp {
 
       item.querySelector('[data-action="toggle"]').addEventListener('click', () => {
         window.soundEngine.playTick();
-        this.toggleTimerPlay(timer.id);
+        if (timer.status === 'completed') {
+          this.stopTimerAlarm(timer.id);
+        } else {
+          this.toggleTimerPlay(timer.id);
+        }
       });
 
       item.querySelector('[data-action="delete"]').addEventListener('click', () => {

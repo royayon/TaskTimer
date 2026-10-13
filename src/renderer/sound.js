@@ -4,6 +4,10 @@ class SoundEngine {
     this.audioCtx = null;
     this.activeRingerInterval = null;
     this.soundEnabled = true;
+    this.isRinging = false;
+    this.ringingTimerId = null;
+    this.autoSilenceTimeout = null;
+    this.onRingingStateChange = null;
   }
 
   init() {
@@ -272,8 +276,25 @@ class SoundEngine {
   }
 
   // Start continuous alarm ringing when timer expires
-  startRinging(toneName = 'radar') {
+  startRinging(toneName = 'radar', timerId = null) {
     this.stopRinging();
+    this.isRinging = true;
+    this.ringingTimerId = timerId;
+
+    // Safety guard: Automatically silence after 60 seconds so user's PC does not ring indefinitely
+    this.autoSilenceTimeout = setTimeout(() => {
+      console.log('TaskTimer: Alarm auto-silenced after 60s timeout.');
+      this.stopRinging();
+    }, 60000);
+
+    if (typeof this.onRingingStateChange === 'function') {
+      try {
+        this.onRingingStateChange(true, timerId);
+      } catch (e) {
+        console.warn('Error in onRingingStateChange callback:', e);
+      }
+    }
+
     if (toneName === 'custom') {
       try {
         const customData = localStorage.getItem('task_timer_custom_sound');
@@ -295,6 +316,10 @@ class SoundEngine {
   }
 
   stopRinging() {
+    if (this.autoSilenceTimeout) {
+      clearTimeout(this.autoSilenceTimeout);
+      this.autoSilenceTimeout = null;
+    }
     if (this.customAudio) {
       try {
         this.customAudio.pause();
@@ -305,6 +330,18 @@ class SoundEngine {
     if (this.activeRingerInterval) {
       clearInterval(this.activeRingerInterval);
       this.activeRingerInterval = null;
+    }
+    if (this.isRinging) {
+      this.isRinging = false;
+      const prevId = this.ringingTimerId;
+      this.ringingTimerId = null;
+      if (typeof this.onRingingStateChange === 'function') {
+        try {
+          this.onRingingStateChange(false, prevId);
+        } catch (e) {
+          console.warn('Error in onRingingStateChange callback:', e);
+        }
+      }
     }
   }
 }

@@ -89,6 +89,7 @@ function createMainWindow() {
     if (!app.isQuitting) {
       event.preventDefault();
       mainWindow.hide();
+      mainWindow.webContents.send('alarm:silence');
     }
     return false;
   });
@@ -595,6 +596,7 @@ ipcMain.on('timer:complete', (_event, timer) => {
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
+        mainWindow.webContents.send('alarm:silence');
       }
     });
 
@@ -811,6 +813,7 @@ ipcMain.on('window:close', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
   if (win === mainWindow) {
     mainWindow.hide();
+    mainWindow.webContents.send('alarm:silence');
   } else if (win && !win.isDestroyed()) {
     win.close();
   }
@@ -819,6 +822,15 @@ ipcMain.on('window:close', (event) => {
 ipcMain.on('window:hide-to-tray', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
   if (win && !win.isDestroyed()) win.hide();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('alarm:silence');
+  }
+});
+
+ipcMain.on('alarm:silence', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('alarm:silence');
+  }
 });
 
 // Stopwatch Window IPC Handlers

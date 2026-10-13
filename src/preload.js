@@ -35,8 +35,14 @@ contextBridge.exposeInMainWorld('timerAPI', {
   
   // Quick timer action event listeners (triggered from taskbar thumb buttons or tray menu)
   onTimerAction: (callback) => {
-    ipcRenderer.on('action:timer', (_event, action) => callback(action));
+    ipcRenderer.on('action:timer', (_event, action, payload) => callback(action, payload));
   },
+  
+  // Alarm silence notification from OS / Window close
+  onAlarmSilence: (callback) => {
+    ipcRenderer.on('alarm:silence', () => callback());
+  },
+  silenceAlarm: () => ipcRenderer.send('alarm:silence'),
   
   // Lockscreen & Power state events
   onPowerStateChange: (callback) => {

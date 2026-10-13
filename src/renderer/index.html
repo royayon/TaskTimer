@@ -87,6 +87,21 @@
 
   <!-- Main Scrollable Content -->
   <main class="content-scroll">
+    <!-- Persistent Alarm Ringing Banner (Appears when timer is buzzing) -->
+    <div class="alarm-ringing-banner" id="alarmRingingBanner" style="display: none;">
+      <div class="alarm-banner-content">
+        <div class="alarm-banner-icon">🔔</div>
+        <div class="alarm-banner-text">
+          <div class="alarm-banner-title" id="alarmBannerTitle">Timer Finished!</div>
+          <div class="alarm-banner-sub" id="alarmBannerSub">Press Space, Enter, or tap Stop to silence</div>
+        </div>
+      </div>
+      <div class="alarm-banner-actions">
+        <button class="btn-alarm-snooze" id="btnAlarmBannerSnooze" title="Snooze for 5 minutes">+5m Snooze</button>
+        <button class="btn-alarm-stop" id="btnAlarmBannerStop" title="Stop Alarm (Dismiss)">■ Stop</button>
+      </div>
+    </div>
+
     <!-- Active Timers Stack Switcher Carousel (Positioned ABOVE the Hero Card) -->
     <div class="hero-stack-tabs" id="heroStackTabs">
       <!-- Rendered dynamically when multiple timers are active -->
