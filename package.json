@@ -6,9 +6,9 @@
   "scripts": {
     "start": "electron .",
     "icons": "python scripts/create_icons.py",
-    "dist:win": "electron-builder --win --publish never",
-    "dist:mac": "electron-builder --mac --publish never",
-    "dist": "electron-builder -w --publish never"
+    "dist:win": "node scripts/build_dist.js --win",
+    "dist:mac": "node scripts/build_dist.js --mac",
+    "dist": "node scripts/build_dist.js -w"
   },
   "build": {
     "appId": "com.royayon.tasktimer",
