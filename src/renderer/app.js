@@ -1820,7 +1820,7 @@ class TaskTimerApp {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  slideToTimer(timerId) {
+  slideToTimer(timerId, shouldScrollToTop = false) {
     const targetIndex = this.timers.findIndex(t => t.id === timerId);
     if (targetIndex === -1) return;
 
@@ -1832,6 +1832,13 @@ class TaskTimerApp {
 
     this.render();
     this.syncWithOsTaskbar();
+
+    if (shouldScrollToTop) {
+      const cs = document.querySelector('.content-scroll');
+      if (cs && cs.scrollTop > 40) {
+        cs.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
   }
 
   buildHeroSlideHtml(t) {
@@ -2613,7 +2620,7 @@ class TaskTimerApp {
       card.addEventListener('click', (e) => {
         if (this._justFinishedDragging || this._isDraggingCard || e.target.closest('.timer-card-actions') || e.target.closest('.card-drag-grip')) return;
         window.soundEngine.playTick();
-        this.slideToTimer(timer.id);
+        this.slideToTimer(timer.id, true);
       });
 
       // Double-click to Edit Timer
