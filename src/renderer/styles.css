@@ -34,9 +34,12 @@
   margin: 0;
   padding: 0;
   user-select: none;
-  -webkit-user-drag: none;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+img, svg {
+  -webkit-user-drag: none;
 }
 
 /* Universal Apple Glass Scrollbar */
@@ -787,43 +790,50 @@ body::before {
 }
 
 .card-drag-grip {
-  color: rgba(255, 255, 255, 0.22);
-  font-size: 13px;
-  letter-spacing: -2px;
+  color: rgba(255, 255, 255, 0.35);
   cursor: grab;
-  padding: 4px 6px 4px 0;
-  margin-right: 2px;
+  padding: 6px 8px 6px 2px;
+  margin-right: 4px;
   user-select: none;
+  touch-action: none;
   flex-shrink: 0;
   transition: color 0.15s ease, transform 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .timer-card:hover .card-drag-grip {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .card-drag-grip:hover {
   color: var(--ios-orange);
-  transform: scale(1.18);
+  transform: scale(1.15);
+}
+
+.card-drag-grip:active {
+  cursor: grabbing;
 }
 
 .timer-card.dragging {
-  opacity: 0.35 !important;
-  border: 1px dashed rgba(255, 159, 10, 0.7) !important;
-  transform: scale(0.98) !important;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6) !important;
+  opacity: 0.45 !important;
+  border: 1.5px dashed var(--ios-orange) !important;
+  transform: scale(0.985) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6) !important;
+  background: rgba(255, 159, 10, 0.08) !important;
   cursor: grabbing !important;
 }
 
 .timer-card.drag-over-top {
-  border-top: 2px solid var(--ios-orange) !important;
-  box-shadow: 0 -4px 14px rgba(255, 159, 10, 0.45) !important;
+  border-top: 3px solid var(--ios-orange) !important;
+  box-shadow: 0 -6px 18px rgba(255, 159, 10, 0.5) !important;
   transform: translateY(2px);
 }
 
 .timer-card.drag-over-bottom {
-  border-bottom: 2px solid var(--ios-orange) !important;
-  box-shadow: 0 4px 14px rgba(255, 159, 10, 0.45) !important;
+  border-bottom: 3px solid var(--ios-orange) !important;
+  box-shadow: 0 6px 18px rgba(255, 159, 10, 0.5) !important;
   transform: translateY(-2px);
 }
 

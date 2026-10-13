@@ -2521,11 +2521,19 @@ class TaskTimerApp {
       const card = document.createElement('div');
       card.className = `timer-card ${isPrimary ? 'active-primary' : ''} ${isComp ? 'completed' : ''}`;
       card.setAttribute('data-timer-id', timer.id);
-      card.setAttribute('draggable', 'true');
 
       card.innerHTML = `
         <div class="timer-card-left" data-id="${timer.id}">
-          <div class="card-drag-grip" title="Drag to rearrange order">⋮⋮</div>
+          <div class="card-drag-grip" title="Drag to rearrange order">
+            <svg width="12" height="18" viewBox="0 0 12 18" fill="currentColor">
+              <circle cx="3" cy="3" r="1.5"></circle>
+              <circle cx="9" cy="3" r="1.5"></circle>
+              <circle cx="3" cy="9" r="1.5"></circle>
+              <circle cx="9" cy="9" r="1.5"></circle>
+              <circle cx="3" cy="15" r="1.5"></circle>
+              <circle cx="9" cy="15" r="1.5"></circle>
+            </svg>
+          </div>
           <div class="mini-ring">
             <svg viewBox="0 0 44 44">
               <circle class="mini-ring-track" cx="22" cy="22" r="18"></circle>
@@ -2585,85 +2593,127 @@ class TaskTimerApp {
         toggleBtn: card.querySelector('[data-action="toggle"]')
       };
 
-      // Drag & Drop Reordering Handlers
-      card.addEventListener('dragstart', (e) => {
-        if (e.target.closest('.timer-card-actions') || e.target.closest('button')) {
-          e.preventDefault();
-          return;
-        }
-        this._isDraggingCard = true;
-        this._draggedTimerId = timer.id;
-        if (e.dataTransfer) {
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', timer.id);
-        }
-        setTimeout(() => {
-          card.classList.add('dragging');
-        }, 0);
-      });
+      // Robust Pointer-Based Drag & Drop Reordering
+      const handlePointerDown = (e) => {
+        if (e.button !== 0) return; // Left click only
+        if (e.target.closest('.timer-card-actions') || e.target.closest('button')) return;
 
-      card.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        if (e.dataTransfer) {
-          e.dataTransfer.dropEffect = 'move';
-        }
-        if (!this._draggedTimerId || this._draggedTimerId === timer.id) return;
+        const isGrip = Boolean(e.target.closest('.card-drag-grip'));
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const threshold = isGrip ? 2 : 8;
+        let isDragging = false;
+        let targetCard = null;
+        let insertBefore = false;
 
-        const rect = card.getBoundingClientRect();
-        const midY = rect.top + (rect.height / 2);
-        if (e.clientY < midY) {
-          card.classList.add('drag-over-top');
-          card.classList.remove('drag-over-bottom');
-        } else {
-          card.classList.add('drag-over-bottom');
-          card.classList.remove('drag-over-top');
-        }
-      });
+        const onPointerMove = (moveEvent) => {
+          const deltaX = moveEvent.clientX - startX;
+          const deltaY = moveEvent.clientY - startY;
+          const dist = Math.hypot(deltaX, deltaY);
 
-      card.addEventListener('dragleave', (e) => {
-        if (!card.contains(e.relatedTarget)) {
-          card.classList.remove('drag-over-top', 'drag-over-bottom');
-        }
-      });
-
-      card.addEventListener('drop', (e) => {
-        e.preventDefault();
-        card.classList.remove('drag-over-top', 'drag-over-bottom');
-        const draggedId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || this._draggedTimerId;
-        const targetId = timer.id;
-
-        if (draggedId && draggedId !== targetId) {
-          const rect = card.getBoundingClientRect();
-          const isTop = e.clientY < (rect.top + (rect.height / 2));
-          const fromIdx = this.timers.findIndex(t => t.id === draggedId);
-          if (fromIdx !== -1) {
-            const [movedTimer] = this.timers.splice(fromIdx, 1);
-            let toIdx = this.timers.findIndex(t => t.id === targetId);
-            if (!isTop) {
-              toIdx += 1;
-            }
-            this.timers.splice(toIdx, 0, movedTimer);
-            this.saveTimers();
+          if (!isDragging && dist >= threshold) {
+            isDragging = true;
+            this._isDraggingCard = true;
+            this._draggedTimerId = timer.id;
+            card.classList.add('dragging');
+            document.body.style.cursor = 'grabbing';
             if (window.soundEngine) window.soundEngine.playTick();
-            this.render();
-            this.syncWithOsTaskbar();
           }
-        }
-      });
 
-      card.addEventListener('dragend', () => {
-        this._isDraggingCard = false;
-        this._draggedTimerId = null;
-        this._justFinishedDragging = true;
-        setTimeout(() => {
-          this._justFinishedDragging = false;
-        }, 120);
+          if (isDragging) {
+            moveEvent.preventDefault();
+            const allCards = Array.from(this.dom.timersListContainer.querySelectorAll('.timer-card'));
 
-        if (this.dom.timersListContainer) {
-          const allCards = this.dom.timersListContainer.querySelectorAll('.timer-card');
-          allCards.forEach(c => c.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
-        }
-      });
+            // Clear previous hover indicators
+            allCards.forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+            targetCard = null;
+
+            // Detect card under pointer
+            for (const otherCard of allCards) {
+              if (otherCard === card) continue;
+              const rect = otherCard.getBoundingClientRect();
+              if (moveEvent.clientY >= rect.top && moveEvent.clientY <= rect.bottom) {
+                targetCard = otherCard;
+                const midY = rect.top + (rect.height / 2);
+                if (moveEvent.clientY < midY) {
+                  insertBefore = true;
+                  otherCard.classList.add('drag-over-top');
+                } else {
+                  insertBefore = false;
+                  otherCard.classList.add('drag-over-bottom');
+                }
+                break;
+              }
+            }
+
+            // Boundary edges: above top or below bottom
+            if (!targetCard && allCards.length > 0) {
+              const first = allCards[0];
+              const last = allCards[allCards.length - 1];
+              if (moveEvent.clientY < first.getBoundingClientRect().top && first !== card) {
+                targetCard = first;
+                insertBefore = true;
+                first.classList.add('drag-over-top');
+              } else if (moveEvent.clientY > last.getBoundingClientRect().bottom && last !== card) {
+                targetCard = last;
+                insertBefore = false;
+                last.classList.add('drag-over-bottom');
+              }
+            }
+          }
+        };
+
+        const onPointerUp = (upEvent) => {
+          window.removeEventListener('pointermove', onPointerMove);
+          window.removeEventListener('pointerup', onPointerUp);
+          window.removeEventListener('pointercancel', onPointerUp);
+          document.body.style.cursor = '';
+
+          if (isDragging) {
+            upEvent.preventDefault();
+            upEvent.stopPropagation();
+            this._isDraggingCard = false;
+            this._draggedTimerId = null;
+            this._justFinishedDragging = true;
+            setTimeout(() => {
+              this._justFinishedDragging = false;
+            }, 180);
+
+            // Clean up visual cues
+            if (this.dom.timersListContainer) {
+              const allCards = this.dom.timersListContainer.querySelectorAll('.timer-card');
+              allCards.forEach(c => c.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
+            }
+
+            if (targetCard) {
+              const targetId = targetCard.getAttribute('data-timer-id');
+              if (targetId && targetId !== timer.id) {
+                const fromIdx = this.timers.findIndex(t => t.id === timer.id);
+                if (fromIdx !== -1) {
+                  const [movedTimer] = this.timers.splice(fromIdx, 1);
+                  let toIdx = this.timers.findIndex(t => t.id === targetId);
+                  if (toIdx !== -1) {
+                    if (!insertBefore) {
+                      toIdx += 1;
+                    }
+                    this.timers.splice(toIdx, 0, movedTimer);
+                    this.saveTimers();
+                    if (window.soundEngine) window.soundEngine.playTick();
+                    this.render();
+                    this.syncWithOsTaskbar();
+                  }
+                }
+              }
+            }
+          }
+        };
+
+        window.addEventListener('pointermove', onPointerMove, { passive: false });
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
+      };
+
+      card.addEventListener('pointerdown', handlePointerDown);
 
       // Select timer as primary on single click
       card.addEventListener('click', (e) => {
