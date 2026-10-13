@@ -1871,7 +1871,18 @@ class TaskTimerApp {
 
     return `
       <section class="hero-timer-card">
-        <div class="pomo-cycle-badge" style="${pomoBadgeStyle}">${pomoBadgeText}</div>
+        <div class="hero-card-top-bar">
+          <div class="timer-label-tag" title="Click to Edit Timer (Name, Color, Sound)">
+            <span class="category-icon">${t.category || '⏱️'}</span>
+            <span class="timer-label">${t.label}</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6; margin-left: 2px;">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </div>
+          <div class="pomo-cycle-badge" style="${pomoBadgeStyle}">${pomoBadgeText}</div>
+        </div>
+
         <div class="ring-wrapper">
           <svg class="ring-svg" viewBox="0 0 260 260">
             <circle class="ring-track" cx="130" cy="130" r="108"></circle>
@@ -1880,14 +1891,6 @@ class TaskTimerApp {
                     style="stroke: ${color}; filter: drop-shadow(0 0 12px ${color}88);"></circle>
           </svg>
           <div class="ring-center-content">
-            <div class="timer-label-tag" title="Click to Edit Timer (Name, Color, Sound)">
-              <span class="category-icon">${t.category || '⏱️'}</span>
-              <span class="timer-label">${t.label}</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6; margin-left: 2px;">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-              </svg>
-            </div>
             <div class="timer-digits">${this.formatTime(t.remaining)}</div>
             <div class="timer-meta">
               <span class="end-time">${endTimeText}</span>
@@ -1934,7 +1937,7 @@ class TaskTimerApp {
     const existingSlides = track.querySelectorAll('.hero-carousel-slide');
 
     let needsFullRebuild = false;
-    if (existingSlides.length !== this.timers.length) {
+    if (existingSlides.length !== this.timers.length || this._carouselTimersKey !== currentTimerKeys) {
       needsFullRebuild = true;
     } else {
       for (let i = 0; i < existingSlides.length; i++) {

@@ -448,44 +448,65 @@ body::before {
   filter: drop-shadow(0 0 12px var(--ios-orange-glow));
 }
 
+.hero-card-top-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 8px;
+  z-index: 5;
+}
+
 .ring-center-content {
   position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-align: center;
   pointer-events: none;
 }
 
 .timer-label-tag {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 2px;
-  display: flex;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
   pointer-events: auto;
   cursor: pointer;
-  padding: 4px 10px;
-  border-radius: 14px;
-  transition: all 0.2s ease;
+  padding: 5px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 92%;
+  box-sizing: border-box;
 }
 
 .timer-label-tag:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.28);
   color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.timer-label-tag .timer-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .timer-digits {
-  font-size: 52px;
+  font-size: 56px;
   font-weight: 300;
   letter-spacing: -1.5px;
   line-height: 1;
   color: #ffffff;
-  margin: 4px 0 6px 0;
+  margin: 0 0 6px 0;
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
