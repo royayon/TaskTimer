@@ -6,11 +6,18 @@ let mainWindow = null;
 let stopwatchWindow = null;
 let stopwatchTaskbarMode = false;
 let previousStopwatchBounds = null;
+let taskbarWindow = null;
+let isTaskbarPillVisible = true;
+let isStackExpanded = false;
+let taskbarMoveTimeout = null;
 let tray = null;
 let powerBlockerId = null;
-let currentMode = 'standard'; // 'standard', 'mini', 'taskbar', 'standby'
+let currentMode = 'standard'; // 'standard', 'mini', 'standby'
 let previousBounds = null;
 let lastTimerData = null;
+
+const taskbarPosFile = path.join(app.getPath('userData'), 'taskbar_pill_position.json');
+const taskbarSettingsFile = path.join(app.getPath('userData'), 'taskbar_pill_settings.json');
 
 // Prevent multiple instances
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -130,6 +137,158 @@ function createStopwatchWindow() {
   return stopwatchWindow;
 }
 
+// -------------------------------------------------------------
+// Floating Taskbar Pill Window (Persistent Companion Widget)
+// -------------------------------------------------------------
+function saveTaskbarPosition(pos) {
+  try {
+    fs.writeFileSync(taskbarPosFile, JSON.stringify(pos, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Failed to save taskbar position:', e);
+  }
+}
+
+function loadTaskbarPosition() {
+  try {
+    if (fs.existsSync(taskbarPosFile)) {
+      return JSON.parse(fs.readFileSync(taskbarPosFile, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Failed to read taskbar position:', e);
+  }
+  return null;
+}
+
+function saveTaskbarSettings(settings) {
+  try {
+    fs.writeFileSync(taskbarSettingsFile, JSON.stringify(settings, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Failed to save taskbar settings:', e);
+  }
+}
+
+function loadTaskbarSettings() {
+  try {
+    if (fs.existsSync(taskbarSettingsFile)) {
+      return JSON.parse(fs.readFileSync(taskbarSettingsFile, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Failed to read taskbar settings:', e);
+  }
+  return { visible: true };
+}
+
+function isPositionOnAnyDisplay(x, y, w = 100, h = 40) {
+  try {
+    const displays = screen.getAllDisplays();
+    return displays.some(d => {
+      const b = d.bounds;
+      return (x + w > b.x && x < b.x + b.width && y + h > b.y && y < b.y + b.height);
+    });
+  } catch (e) {
+    return true;
+  }
+}
+
+function createTaskbarPillWindow() {
+  if (taskbarWindow && !taskbarWindow.isDestroyed()) {
+    return taskbarWindow;
+  }
+
+  const savedPos = loadTaskbarPosition();
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.bounds;
+  const taskbarWidth = 285;
+  const taskbarHeight = 46;
+
+  let x = Math.max(0, width - taskbarWidth - 210);
+  let y = Math.max(0, height - taskbarHeight - 6);
+
+  if (savedPos && typeof savedPos.x === 'number' && typeof savedPos.y === 'number') {
+    if (isPositionOnAnyDisplay(savedPos.x, savedPos.y, taskbarWidth, taskbarHeight)) {
+      x = savedPos.x;
+      y = savedPos.y;
+    }
+  }
+
+  taskbarWindow = new BrowserWindow({
+    x,
+    y,
+    width: taskbarWidth,
+    height: taskbarHeight,
+    minWidth: 180,
+    minHeight: 46,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    hasShadow: false,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      backgroundThrottling: false
+    }
+  });
+
+  taskbarWindow.setAlwaysOnTop(true, 'screen-saver');
+
+  taskbarWindow.loadFile(path.join(__dirname, 'renderer', 'taskbar.html'));
+
+  taskbarWindow.once('ready-to-show', () => {
+    if (isTaskbarPillVisible) {
+      taskbarWindow.show();
+    }
+    if (lastTimerData) {
+      taskbarWindow.webContents.send('timer:data', lastTimerData);
+    }
+  });
+
+  taskbarWindow.on('moved', () => {
+    if (isStackExpanded) return;
+    clearTimeout(taskbarMoveTimeout);
+    taskbarMoveTimeout = setTimeout(() => {
+      if (taskbarWindow && !taskbarWindow.isDestroyed()) {
+        const bounds = taskbarWindow.getBounds();
+        saveTaskbarPosition({ x: bounds.x, y: bounds.y, width: bounds.width, height: 46 });
+      }
+    }, 250);
+  });
+
+  taskbarWindow.on('closed', () => {
+    taskbarWindow = null;
+  });
+
+  return taskbarWindow;
+}
+
+function setTaskbarPillVisibility(visible) {
+  isTaskbarPillVisible = visible;
+  saveTaskbarSettings({ visible: isTaskbarPillVisible });
+
+  if (taskbarWindow && !taskbarWindow.isDestroyed()) {
+    if (isTaskbarPillVisible) {
+      taskbarWindow.show();
+      if (lastTimerData) {
+        taskbarWindow.webContents.send('timer:data', lastTimerData);
+      }
+    } else {
+      taskbarWindow.hide();
+    }
+  } else if (isTaskbarPillVisible) {
+    createTaskbarPillWindow();
+  }
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('taskbar:visibility-changed', isTaskbarPillVisible);
+  }
+
+  updateTrayMenu();
+}
+
 function setupTray() {
   const trayIconPath = getAssetPath('tray.png');
   let trayImage = nativeImage.createFromPath(trayIconPath);
@@ -188,9 +347,9 @@ function updateTrayMenu() {
       }
     },
     {
-      label: currentMode === 'taskbar' ? 'Restore Full App' : 'Dock directly on Taskbar',
+      label: isTaskbarPillVisible ? 'Hide Floating Taskbar Pill' : 'Show Floating Taskbar Pill',
       click: () => {
-        toggleTaskbarBar(currentMode !== 'taskbar');
+        setTaskbarPillVisibility(!isTaskbarPillVisible);
       }
     },
     {
@@ -295,6 +454,10 @@ let lastAppliedTooltip = '';
 
 ipcMain.on('timer:update', (_event, data) => {
   lastTimerData = data;
+  if (taskbarWindow && !taskbarWindow.isDestroyed() && isTaskbarPillVisible) {
+    taskbarWindow.webContents.send('timer:data', data);
+  }
+
   const { activeCount, primaryTimer, dynamicIcon } = data;
 
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -581,27 +744,54 @@ function toggleStopwatchTaskbar(enable) {
 }
 
 ipcMain.handle('window:toggle-mini', (_event, enable) => toggleMiniMode(enable));
-ipcMain.handle('window:toggle-taskbar-bar', (_event, enable) => toggleTaskbarBar(enable));
+ipcMain.handle('window:toggle-taskbar-bar', (_event, enable) => {
+  const next = enable !== undefined ? Boolean(enable) : !isTaskbarPillVisible;
+  setTaskbarPillVisibility(next);
+  return next;
+});
+ipcMain.handle('taskbar:toggle-visibility', (_event, show) => {
+  const next = show !== undefined ? Boolean(show) : !isTaskbarPillVisible;
+  setTaskbarPillVisibility(next);
+  return next;
+});
+ipcMain.handle('taskbar:get-visibility', () => {
+  return isTaskbarPillVisible;
+});
 ipcMain.handle('window:expand-taskbar-stack', (_event, expand) => {
-  if (!mainWindow || currentMode !== 'taskbar') return false;
-  const bounds = mainWindow.getBounds();
+  if (!taskbarWindow || taskbarWindow.isDestroyed()) return false;
+  isStackExpanded = Boolean(expand);
+  const bounds = taskbarWindow.getBounds();
   const deltaH = 140;
   if (expand) {
-    mainWindow.setBounds({
+    taskbarWindow.setBounds({
       x: bounds.x,
       y: Math.max(0, bounds.y - deltaH),
       width: bounds.width,
-      height: bounds.height + deltaH
+      height: 46 + deltaH
     }, true);
   } else {
-    mainWindow.setBounds({
+    taskbarWindow.setBounds({
       x: bounds.x,
       y: bounds.y + deltaH,
       width: bounds.width,
-      height: bounds.height - deltaH
+      height: 46
     }, true);
   }
   return true;
+});
+
+// Floating Taskbar Pill Actions (triggered from taskbar.js)
+ipcMain.on('taskbar:action', (_event, action, payload) => {
+  if (action === 'restore-main') {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  } else if (action === 'hide-pill') {
+    setTaskbarPillVisibility(false);
+  } else if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('action:timer', action, payload);
+  }
 });
 ipcMain.handle('window:toggle-standby', (_event, enable) => toggleStandbyMode(enable));
 ipcMain.handle('window:toggle-always-on-top', (event, enable) => {
@@ -717,13 +907,18 @@ function initPowerMonitor() {
 }
 
 app.whenReady().then(() => {
+  const settings = loadTaskbarSettings();
+  isTaskbarPillVisible = settings.visible !== false;
+
   createMainWindow();
+  createTaskbarPillWindow();
   setupTray();
   initPowerMonitor();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
+      createTaskbarPillWindow();
     } else if (mainWindow) {
       mainWindow.show();
     }

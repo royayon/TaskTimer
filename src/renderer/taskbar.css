@@ -1,0 +1,310 @@
+/* -------------------------------------------------------------
+   TaskTimer Dedicated Taskbar Pill Widget - Glassmorphism Styling
+   ------------------------------------------------------------- */
+:root {
+  --bg-color: transparent;
+  --surface-border: rgba(255, 255, 255, 0.22);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(235, 235, 245, 0.7);
+  --text-tertiary: rgba(235, 235, 245, 0.4);
+  --ios-orange: #ff9f0a;
+  --radius-pill: 20px;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+body {
+  font-family: var(--font-family);
+  background: transparent;
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+.taskbar-pill-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.taskbar-pill {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 40px;
+  background: rgba(18, 18, 22, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: none;
+  backdrop-filter: blur(28px);
+  border-radius: var(--radius-pill);
+  padding: 0 8px;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  -webkit-app-region: drag; /* Easy drag anywhere on the pill */
+}
+
+.taskbar-pill:hover {
+  border-color: rgba(255, 159, 10, 0.45);
+  background: rgba(24, 24, 30, 0.98);
+}
+
+.pill-drag-grip {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 0 4px 0 2px;
+  cursor: grab;
+  user-select: none;
+  letter-spacing: -1px;
+  -webkit-app-region: drag;
+  flex-shrink: 0;
+}
+
+.pill-body-interactive {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 12px;
+  -webkit-app-region: no-drag;
+  transition: background 0.15s ease;
+}
+
+.pill-body-interactive:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.taskbar-pill-ring {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.taskbar-pill-ring svg {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.taskbar-pill-text {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.taskbar-pill-digits {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ios-orange);
+  letter-spacing: -0.3px;
+}
+
+.taskbar-pill-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70px;
+}
+
+/* Stack Switcher Chevrons & Badge */
+.pill-stack-switcher {
+  display: none;
+  align-items: center;
+  gap: 1px;
+  -webkit-app-region: no-drag;
+  margin: 0 3px;
+  flex-shrink: 0;
+}
+
+.pill-stack-chevron {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.pill-stack-chevron:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.pill-stack-badge {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.pill-stack-badge:hover {
+  background: var(--ios-orange);
+  color: #000;
+  border-color: var(--ios-orange);
+}
+
+.taskbar-pill-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+
+.pill-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #ffffff;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pill-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+  transform: scale(1.08);
+}
+
+.pill-btn.close-pill:hover {
+  background: rgba(255, 69, 58, 0.5);
+  color: #ffffff;
+}
+
+/* Stack Dropup Drawer */
+.taskbar-stack-dropdown {
+  display: none;
+  position: absolute;
+  bottom: 46px;
+  left: 6px;
+  right: 6px;
+  background: rgba(16, 16, 20, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 8px 10px;
+  box-shadow: 0 -8px 26px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(28px);
+  z-index: 100;
+  -webkit-app-region: no-drag;
+}
+
+.taskbar-stack-dropdown.open {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stack-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 2px 4px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stack-dropdown-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.stack-dropdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 110px;
+  overflow-y: auto;
+}
+
+.stack-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.stack-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.stack-dropdown-item.active {
+  background: rgba(255, 159, 10, 0.2);
+  border: 1px solid rgba(255, 159, 10, 0.4);
+}
+
+.stack-dropdown-item-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stack-dropdown-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.stack-dropdown-digits {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ios-orange);
+}

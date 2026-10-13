@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskTimer - Taskbar Pill</title>
+  <link rel="stylesheet" href="taskbar.css">
+</head>
+<body>
+
+  <!-- Floating Taskbar Pill Container -->
+  <div class="taskbar-pill-wrapper" id="taskbarPillWrapper">
+    <section class="taskbar-pill" id="taskbarPill">
+      <!-- Drag Grip Handle -->
+      <div class="pill-drag-grip" title="Drag to reposition along taskbar">⋮⋮</div>
+
+      <!-- Clickable Body to Enlarge / Open Full App -->
+      <div class="pill-body-interactive" id="pillBodyInteractive" title="Click anywhere to open TaskTimer">
+        <div class="taskbar-pill-ring">
+          <svg viewBox="0 0 26 26">
+            <circle cx="13" cy="13" r="10" stroke="rgba(255,255,255,0.15)" stroke-width="2.6" fill="none"></circle>
+            <circle id="taskbarPillProgress" cx="13" cy="13" r="10" stroke="#ff9f0a" stroke-width="2.6" fill="none"
+                    stroke-dasharray="62.83" stroke-dashoffset="0" stroke-linecap="round"></circle>
+          </svg>
+        </div>
+        <div class="taskbar-pill-text">
+          <span class="taskbar-pill-digits" id="taskbarPillDigits">00:00</span>
+          <span class="taskbar-pill-label" id="taskbarPillLabel">Timer</span>
+        </div>
+      </div>
+
+      <!-- Multiple Timers Stack Switcher: Cycle Chevrons and Dropdown Menu -->
+      <div class="pill-stack-switcher" id="pillStackSwitcher">
+        <button class="pill-stack-chevron" id="btnStackPrev" title="Previous Active Timer">‹</button>
+        <button class="pill-stack-badge" id="btnStackBadge" title="Click to view all active timers">
+          <span id="stackCounterText">1/1</span>
+        </button>
+        <button class="pill-stack-chevron" id="btnStackNext" title="Next Active Timer">›</button>
+      </div>
+
+      <!-- Quick Action Controls -->
+      <div class="taskbar-pill-controls">
+        <button class="pill-btn" id="btnTaskbarPillToggle" title="Play / Pause">⏸</button>
+        <button class="pill-btn" id="btnTaskbarPillAdd1m" title="+1 Minute">+1m</button>
+        <button class="pill-btn" id="btnTaskbarPillRestore" title="Open Full TaskTimer Window">⤢</button>
+        <button class="pill-btn close-pill" id="btnTaskbarPillHide" title="Hide Taskbar Pill (can re-enable in app)">✕</button>
+      </div>
+    </section>
+
+    <!-- Stack Drop-Up Menu / Popover (Shows all timers when clicking the stack badge) -->
+    <div class="taskbar-stack-dropdown" id="taskbarStackDropdown">
+      <div class="stack-dropdown-header">
+        <span>Active Timers</span>
+        <button class="stack-dropdown-close" id="btnCloseStackDropdown">✕</button>
+      </div>
+      <div class="stack-dropdown-list" id="stackDropdownList">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <script src="taskbar.js"></script>
+</body>
+</html>

@@ -22,6 +22,17 @@ contextBridge.exposeInMainWorld('timerAPI', {
   toggleStopwatchTaskbar: (enable) => ipcRenderer.invoke('stopwatch:toggle-taskbar', enable),
   updateStopwatchState: (data) => ipcRenderer.send('stopwatch:update', data),
   
+  // Dedicated Floating Taskbar Pill Window
+  sendTaskbarAction: (action, payload) => ipcRenderer.send('taskbar:action', action, payload),
+  onTimerData: (callback) => {
+    ipcRenderer.on('timer:data', (_event, data) => callback(data));
+  },
+  toggleTaskbarPillVisible: (show) => ipcRenderer.invoke('taskbar:toggle-visibility', show),
+  getTaskbarPillVisible: () => ipcRenderer.invoke('taskbar:get-visibility'),
+  onTaskbarVisibilityChanged: (callback) => {
+    ipcRenderer.on('taskbar:visibility-changed', (_event, visible) => callback(visible));
+  },
+  
   // Quick timer action event listeners (triggered from taskbar thumb buttons or tray menu)
   onTimerAction: (callback) => {
     ipcRenderer.on('action:timer', (_event, action) => callback(action));

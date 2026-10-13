@@ -213,6 +213,7 @@ class TaskTimerApp {
       // Add Modal & Footer Actions
       chipOpenTargetTimer: document.getElementById('chipOpenTargetTimer'),
       btnDockTaskbarBottom: document.getElementById('btnDockTaskbarBottom'),
+      btnDockTaskbarText: document.getElementById('btnDockTaskbarText'),
       btnOpenAddModal: document.getElementById('btnOpenAddModal'),
       addTimerModal: document.getElementById('addTimerModal'),
       btnCloseAddModal: document.getElementById('btnCloseAddModal'),
@@ -322,10 +323,16 @@ class TaskTimerApp {
   bindEvents() {
     // Titlebar & Navigation Actions
     if (this.dom.btnToggleTaskbar) {
-      this.dom.btnToggleTaskbar.addEventListener('click', () => this.toggleTaskbarBar());
+      this.dom.btnToggleTaskbar.addEventListener('click', () => {
+        window.soundEngine?.playTick();
+        this.toggleTaskbarPill();
+      });
     }
     if (this.dom.btnDockTaskbarBottom) {
-      this.dom.btnDockTaskbarBottom.addEventListener('click', () => this.toggleTaskbarBar(true));
+      this.dom.btnDockTaskbarBottom.addEventListener('click', () => {
+        window.soundEngine?.playTick();
+        this.toggleTaskbarPill();
+      });
     }
     this.dom.btnToggleMini.addEventListener('click', () => this.toggleMiniMode());
     this.dom.btnToggleStandby.addEventListener('click', () => this.toggleStandbyMode());
@@ -870,14 +877,29 @@ class TaskTimerApp {
   bindIpcEvents() {
     if (!window.timerAPI) return;
 
-    // Actions sent from Windows taskbar thumbnail buttons or tray context menu
-    window.timerAPI.onTimerAction((action) => {
+    // Actions sent from floating taskbar pill, Windows taskbar buttons, or tray menu
+    window.timerAPI.onTimerAction((action, payload) => {
       switch (action) {
+        case 'toggle-play':
         case 'toggle-primary':
           this.toggleTimerPlay(this.primaryTimerId);
           break;
         case 'add-1m':
           this.addTimeToPrimary(60);
+          break;
+        case 'cycle-prev':
+          this.cycleActiveTimer(-1);
+          break;
+        case 'cycle-next':
+          this.cycleActiveTimer(1);
+          break;
+        case 'cycle-scroll':
+          this.cycleActiveTimer(payload || 1);
+          break;
+        case 'set-primary':
+          if (payload && this.timers.some(t => t.id === payload)) {
+            this.slideToTimer(payload);
+          }
           break;
         case 'reset-primary':
           this.resetTimer(this.primaryTimerId);
@@ -896,6 +918,19 @@ class TaskTimerApp {
           break;
       }
     });
+
+    // Floating Taskbar Pill visibility synchronization
+    if (window.timerAPI.onTaskbarVisibilityChanged) {
+      window.timerAPI.onTaskbarVisibilityChanged((isVisible) => {
+        this.updateTaskbarPillUI(isVisible);
+      });
+    }
+
+    if (window.timerAPI.getTaskbarPillVisible) {
+      window.timerAPI.getTaskbarPillVisible().then(isVisible => {
+        this.updateTaskbarPillUI(isVisible);
+      }).catch(err => console.warn('Pill visibility check:', err));
+    }
 
     // Power & Lockscreen state synchronization
     window.timerAPI.onPowerStateChange((state) => {
@@ -1634,24 +1669,32 @@ class TaskTimerApp {
   }
 
   // -------------------------------------------------------------
-  // View Modes: Taskbar Docked Pill, Mini Window & StandBy Fullscreen
+  // View Modes: Floating Taskbar Pill, Mini Window & StandBy Fullscreen
   // -------------------------------------------------------------
-  toggleTaskbarBar(forceState = null) {
-    this.isTaskbarMode = forceState !== null ? forceState : !this.isTaskbarMode;
-    if (this.isTaskbarMode) {
-      this.dom.body.classList.add('taskbar-mode');
-      if (this.dom.btnToggleTaskbar) this.dom.btnToggleTaskbar.classList.add('active');
-      if (this.isMiniMode) this.toggleMiniMode(false);
-      if (this.isStandbyMode) this.toggleStandbyMode(false);
-    } else {
-      this.dom.body.classList.remove('taskbar-mode');
-      if (this.dom.btnToggleTaskbar) this.dom.btnToggleTaskbar.classList.remove('active');
+  toggleTaskbarPill(forceState = null) {
+    if (window.timerAPI && window.timerAPI.toggleTaskbarPillVisible) {
+      window.timerAPI.toggleTaskbarPillVisible(forceState !== null ? forceState : undefined).then(isVisible => {
+        this.updateTaskbarPillUI(isVisible);
+      });
     }
+  }
 
-    if (window.timerAPI) {
-      window.timerAPI.toggleTaskbarBar(this.isTaskbarMode);
+  toggleTaskbarBar(forceState = null) {
+    this.toggleTaskbarPill(forceState);
+  }
+
+  updateTaskbarPillUI(isVisible) {
+    this.isTaskbarPillVisible = isVisible;
+    if (this.dom.btnToggleTaskbar) {
+      this.dom.btnToggleTaskbar.classList.toggle('active', isVisible);
+      this.dom.btnToggleTaskbar.title = isVisible ? 'Hide Floating Taskbar Pill (Currently Visible)' : 'Show Floating Taskbar Pill (Currently Hidden)';
     }
-    this.render();
+    if (this.dom.btnDockTaskbarBottom) {
+      this.dom.btnDockTaskbarBottom.classList.toggle('active', isVisible);
+    }
+    if (this.dom.btnDockTaskbarText) {
+      this.dom.btnDockTaskbarText.textContent = isVisible ? 'Taskbar Pill: ON' : 'Taskbar Pill: OFF';
+    }
   }
 
   toggleMiniMode(forceState = null) {

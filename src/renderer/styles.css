@@ -856,6 +856,22 @@ body::before {
   transform: translateY(0) scale(0.96);
 }
 
+.btn-dock-taskbar.active {
+  background: rgba(255, 159, 10, 0.2);
+  border-color: rgba(255, 159, 10, 0.6);
+  color: #ffd60a;
+}
+
+.btn-dock-taskbar:not(.active) {
+  opacity: 0.75;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+}
+
+.btn-dock-taskbar:not(.active) svg {
+  color: var(--text-tertiary);
+}
+
 .btn-add-timer {
   pointer-events: auto;
   background: #ffffff;
