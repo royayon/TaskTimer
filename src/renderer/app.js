@@ -472,14 +472,16 @@ class TaskTimerApp {
       if (!this.isCarouselDragging) this.renderHeroCarousel();
     });
 
-    // Dynamic Island Click -> Focus primary or open mini
-    this.dom.dynamicIsland.addEventListener('click', () => {
-      window.soundEngine.playTick();
-      const primary = this.getPrimaryTimer();
-      if (primary) {
-        this.toggleTimerPlay(primary.id);
-      }
-    });
+    // Dynamic Island Click (if present)
+    if (this.dom.dynamicIsland) {
+      this.dom.dynamicIsland.addEventListener('click', () => {
+        window.soundEngine.playTick();
+        const primary = this.getPrimaryTimer();
+        if (primary) {
+          this.toggleTimerPlay(primary.id);
+        }
+      });
+    }
 
     // Add Timer Modal
     this.dom.btnOpenAddModal.addEventListener('click', () => {
@@ -2271,35 +2273,39 @@ class TaskTimerApp {
   render() {
     const primary = this.getPrimaryTimer();
 
-    // 1. Dynamic Island Header
-    if (primary) {
-      this.dom.islandLabel.textContent = primary.label;
-      this.dom.islandTime.textContent = this.formatTime(primary.remaining);
-      this.dom.islandTime.style.color = primary.color || '#ff9f0a';
-      this.dom.islandIcon.style.background = primary.color || '#ff9f0a';
+    // 1. Dynamic Island Header (if present)
+    if (this.dom.islandLabel && this.dom.islandTime) {
+      if (primary) {
+        this.dom.islandLabel.textContent = primary.label;
+        this.dom.islandTime.textContent = this.formatTime(primary.remaining);
+        this.dom.islandTime.style.color = primary.color || '#ff9f0a';
+        if (this.dom.islandIcon) this.dom.islandIcon.style.background = primary.color || '#ff9f0a';
 
-      if (primary.status === 'running') {
-        this.dom.islandBadge.textContent = 'Active';
-        this.dom.islandBadge.style.color = primary.color;
-        this.dom.islandIcon.classList.add('pulse');
-      } else if (primary.status === 'paused') {
-        this.dom.islandBadge.textContent = 'Paused';
-        this.dom.islandBadge.style.color = 'var(--text-secondary)';
-        this.dom.islandIcon.classList.remove('pulse');
-      } else if (primary.status === 'completed') {
-        this.dom.islandBadge.textContent = 'Done!';
-        this.dom.islandBadge.style.color = '#ff453a';
-        this.dom.islandIcon.classList.remove('pulse');
+        if (this.dom.islandBadge) {
+          if (primary.status === 'running') {
+            this.dom.islandBadge.textContent = 'Active';
+            this.dom.islandBadge.style.color = primary.color;
+            if (this.dom.islandIcon) this.dom.islandIcon.classList.add('pulse');
+          } else if (primary.status === 'paused') {
+            this.dom.islandBadge.textContent = 'Paused';
+            this.dom.islandBadge.style.color = 'var(--text-secondary)';
+            if (this.dom.islandIcon) this.dom.islandIcon.classList.remove('pulse');
+          } else if (primary.status === 'completed') {
+            this.dom.islandBadge.textContent = 'Done!';
+            this.dom.islandBadge.style.color = '#ff453a';
+            if (this.dom.islandIcon) this.dom.islandIcon.classList.remove('pulse');
+          } else {
+            this.dom.islandBadge.textContent = 'Ready';
+            this.dom.islandBadge.style.color = 'var(--text-tertiary)';
+            if (this.dom.islandIcon) this.dom.islandIcon.classList.remove('pulse');
+          }
+        }
       } else {
-        this.dom.islandBadge.textContent = 'Ready';
-        this.dom.islandBadge.style.color = 'var(--text-tertiary)';
-        this.dom.islandIcon.classList.remove('pulse');
+        this.dom.islandLabel.textContent = 'No Timers';
+        this.dom.islandTime.textContent = '00:00';
+        if (this.dom.islandBadge) this.dom.islandBadge.textContent = 'Idle';
+        if (this.dom.islandIcon) this.dom.islandIcon.classList.remove('pulse');
       }
-    } else {
-      this.dom.islandLabel.textContent = 'No Timers';
-      this.dom.islandTime.textContent = '00:00';
-      this.dom.islandBadge.textContent = 'Idle';
-      this.dom.islandIcon.classList.remove('pulse');
     }
 
     // 2. Hero Carousel Deck (Swipeable timer cards with stacks on left and right)
