@@ -1701,11 +1701,12 @@ class TaskTimerApp {
   renderHeroStackTabs() {
     if (!this.dom.heroStackTabs) return;
 
-    // Only show active timers (running or paused countdown)
+    // Only show when multiple timers are active (2+ active timers to switch between)
     const activeTimers = this.timers.filter(t => t.status === 'running' || (t.status === 'paused' && t.remaining > 0));
 
-    if (activeTimers.length === 0) {
+    if (activeTimers.length <= 1) {
       this.dom.heroStackTabs.style.display = 'none';
+      this.dom.heroStackTabs.innerHTML = '';
       return;
     }
     this.dom.heroStackTabs.style.display = 'flex';

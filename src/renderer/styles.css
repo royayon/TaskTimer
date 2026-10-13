@@ -1242,13 +1242,13 @@ body.standby-mode.night-mode .lock-persist-dot {
    Hero Stack Tabs (Active Timers Switcher Carousel above Card)
    ------------------------------------------------------------- */
 .hero-stack-tabs {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
   max-width: 100%;
-  min-height: 52px;
+  min-height: 48px;
   flex-shrink: 0;
   padding: 8px 6px 12px 6px;
   margin: 0 0 2px 0;
@@ -1262,6 +1262,13 @@ body.standby-mode.night-mode .lock-persist-dot {
   box-sizing: border-box;
   will-change: scroll-position;
   transform: translateZ(0);
+}
+
+.hero-stack-tabs:empty {
+  display: none !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .hero-stack-tabs.dragging {
