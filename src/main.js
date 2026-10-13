@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification, powerMonitor, powerSaveBlocker, screen } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 let mainWindow = null;
 let stopwatchWindow = null;
@@ -655,6 +656,32 @@ ipcMain.on('stopwatch:update', (_event, data) => {
   } else {
     stopwatchWindow.setProgressBar(-1, { mode: 'none' });
   }
+});
+
+// Persistent Disk Storage for Timers (survives app close & PC reboot)
+const timersStoreFile = path.join(app.getPath('userData'), 'task_timers.json');
+
+ipcMain.handle('storage:save-timers', (_event, timersData) => {
+  try {
+    const jsonStr = typeof timersData === 'string' ? timersData : JSON.stringify(timersData, null, 2);
+    fs.writeFileSync(timersStoreFile, jsonStr, 'utf8');
+    return true;
+  } catch (err) {
+    console.error('Failed to write timers to persistent storage:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('storage:load-timers', () => {
+  try {
+    if (fs.existsSync(timersStoreFile)) {
+      const data = fs.readFileSync(timersStoreFile, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('Failed to read timers from persistent storage:', err);
+  }
+  return null;
 });
 
 ipcMain.handle('system:info', () => ({

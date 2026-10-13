@@ -32,6 +32,10 @@ contextBridge.exposeInMainWorld('timerAPI', {
     ipcRenderer.on('power:state', (_event, state) => callback(state));
   },
   
+  // Persistent storage (survives app exit & PC reboot)
+  saveTimersToDisk: (timers) => ipcRenderer.invoke('storage:save-timers', timers),
+  loadTimersFromDisk: () => ipcRenderer.invoke('storage:load-timers'),
+
   // Request system info
   getSystemInfo: () => ipcRenderer.invoke('system:info')
 });

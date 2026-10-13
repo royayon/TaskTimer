@@ -54,14 +54,13 @@ class TaskTimerApp {
   }
 
   // -------------------------------------------------------------
-  // Data Persistence & Storage
+  // Data Persistence & Storage (survives app exit & PC reboot)
   // -------------------------------------------------------------
   loadTimers() {
     try {
       const saved = localStorage.getItem('task_timers_v1');
       if (saved) {
         this.timers = JSON.parse(saved);
-        // Recalculate remaining seconds based on targetEndTime for running timers
         const now = Date.now();
         this.timers.forEach(t => {
           if (t.status === 'running' && t.endTimestamp) {
@@ -122,13 +121,46 @@ class TaskTimerApp {
     if (!this.primaryTimerId && this.timers.length > 0) {
       this.primaryTimerId = this.timers[0].id;
     }
+
+    // Verify and sync with persistent disk storage (survives PC reboot/cache clear)
+    if (window.timerAPI && window.timerAPI.loadTimersFromDisk) {
+      window.timerAPI.loadTimersFromDisk().then(diskTimers => {
+        if (Array.isArray(diskTimers) && diskTimers.length > 0) {
+          const now = Date.now();
+          diskTimers.forEach(t => {
+            if (t.status === 'running' && t.endTimestamp) {
+              const diff = Math.ceil((t.endTimestamp - now) / 1000);
+              if (diff <= 0) {
+                t.remaining = 0;
+                t.status = 'completed';
+              } else {
+                t.remaining = diff;
+              }
+            }
+          });
+          this.timers = diskTimers;
+          if (!this.primaryTimerId || !this.timers.find(t => t.id === this.primaryTimerId)) {
+            this.primaryTimerId = this.timers[0].id;
+          }
+          this.render();
+          this.syncWithOsTaskbar();
+        }
+      }).catch(err => console.warn('Persistent storage check:', err));
+    }
   }
 
   saveTimers() {
     try {
       localStorage.setItem('task_timers_v1', JSON.stringify(this.timers));
     } catch (e) {
-      console.error('Failed to save timers:', e);
+      console.error('Failed to save timers to localStorage:', e);
+    }
+
+    // Always mirror to atomic disk file via IPC so PC restart or cache clear persists all timers & order
+    if (window.timerAPI && window.timerAPI.saveTimersToDisk) {
+      window.timerAPI.saveTimersToDisk(this.timers).catch(err => {
+        console.warn('Failed to save timers to persistent disk file:', err);
+      });
     }
   }
 
@@ -2288,6 +2320,9 @@ class TaskTimerApp {
   renderTimersList() {
     if (!this.dom.timersListContainer) return;
 
+    // Do not interrupt active drag-and-drop gesture during ticks
+    if (this._isDraggingCard) return;
+
     if (this.timers.length === 0) {
       this.dom.timersListContainer.innerHTML = `
         <div style="text-align: center; padding: 32px 16px; color: var(--text-tertiary); font-size: 14px;">
@@ -2381,9 +2416,11 @@ class TaskTimerApp {
       const card = document.createElement('div');
       card.className = `timer-card ${isPrimary ? 'active-primary' : ''}`;
       card.setAttribute('data-timer-id', timer.id);
+      card.setAttribute('draggable', 'true');
 
       card.innerHTML = `
         <div class="timer-card-left" data-id="${timer.id}">
+          <div class="card-drag-grip" title="Drag to rearrange order">⋮⋮</div>
           <div class="mini-ring">
             <svg viewBox="0 0 44 44">
               <circle class="mini-ring-track" cx="22" cy="22" r="18"></circle>
@@ -2440,16 +2477,96 @@ class TaskTimerApp {
         toggleBtn: card.querySelector('[data-action="toggle"]')
       };
 
+      // Drag & Drop Reordering Handlers
+      card.addEventListener('dragstart', (e) => {
+        if (e.target.closest('.timer-card-actions') || e.target.closest('button')) {
+          e.preventDefault();
+          return;
+        }
+        this._isDraggingCard = true;
+        this._draggedTimerId = timer.id;
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', timer.id);
+        }
+        setTimeout(() => {
+          card.classList.add('dragging');
+        }, 0);
+      });
+
+      card.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer) {
+          e.dataTransfer.dropEffect = 'move';
+        }
+        if (!this._draggedTimerId || this._draggedTimerId === timer.id) return;
+
+        const rect = card.getBoundingClientRect();
+        const midY = rect.top + (rect.height / 2);
+        if (e.clientY < midY) {
+          card.classList.add('drag-over-top');
+          card.classList.remove('drag-over-bottom');
+        } else {
+          card.classList.add('drag-over-bottom');
+          card.classList.remove('drag-over-top');
+        }
+      });
+
+      card.addEventListener('dragleave', (e) => {
+        if (!card.contains(e.relatedTarget)) {
+          card.classList.remove('drag-over-top', 'drag-over-bottom');
+        }
+      });
+
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        card.classList.remove('drag-over-top', 'drag-over-bottom');
+        const draggedId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || this._draggedTimerId;
+        const targetId = timer.id;
+
+        if (draggedId && draggedId !== targetId) {
+          const rect = card.getBoundingClientRect();
+          const isTop = e.clientY < (rect.top + (rect.height / 2));
+          const fromIdx = this.timers.findIndex(t => t.id === draggedId);
+          if (fromIdx !== -1) {
+            const [movedTimer] = this.timers.splice(fromIdx, 1);
+            let toIdx = this.timers.findIndex(t => t.id === targetId);
+            if (!isTop) {
+              toIdx += 1;
+            }
+            this.timers.splice(toIdx, 0, movedTimer);
+            this.saveTimers();
+            if (window.soundEngine) window.soundEngine.playTick();
+            this.render();
+            this.syncWithOsTaskbar();
+          }
+        }
+      });
+
+      card.addEventListener('dragend', () => {
+        this._isDraggingCard = false;
+        this._draggedTimerId = null;
+        this._justFinishedDragging = true;
+        setTimeout(() => {
+          this._justFinishedDragging = false;
+        }, 120);
+
+        if (this.dom.timersListContainer) {
+          const allCards = this.dom.timersListContainer.querySelectorAll('.timer-card');
+          allCards.forEach(c => c.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
+        }
+      });
+
       // Select timer as primary on single click
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.timer-card-actions')) return;
+        if (this._justFinishedDragging || this._isDraggingCard || e.target.closest('.timer-card-actions') || e.target.closest('.card-drag-grip')) return;
         window.soundEngine.playTick();
         this.slideToTimer(timer.id);
       });
 
       // Double-click to Edit Timer
       card.addEventListener('dblclick', (e) => {
-        if (e.target.closest('.timer-card-actions')) return;
+        if (this._justFinishedDragging || this._isDraggingCard || e.target.closest('.timer-card-actions') || e.target.closest('.card-drag-grip')) return;
         window.soundEngine.playTick();
         this.openEditModal(timer.id);
       });
